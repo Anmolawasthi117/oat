@@ -1,1 +1,79 @@
 @import "tailwindcss";
+
+/* Import Google Fonts */
+@import '@fontsource/instrument-serif';
+@import '@fontsource/geist-sans';
+
+/* CSS Custom Properties - The Breakfast Palette */
+:root {
+    /* Colors */
+    --color-oat-cream: #FDFBF7;
+    --color-paper: #F5F2EB;
+    --color-espresso: #3C2F2F;
+    --color-warm-grey: #8C8580;
+    --color-matcha: #C3D9C3;
+    --color-clay: #E0C9A6;
+    --color-berry: #D48C95;
+
+    /* Typography */
+    --font-heading: 'Instrument Serif', serif;
+    --font-body: 'Geist Sans', sans-serif;
+
+    /* Shadows */
+    --shadow-sm: 0 1px 2px 0 rgba(60, 47, 47, 0.05);
+    --shadow-md: 0 4px 6px -1px rgba(60, 47, 47, 0.1), 0 2px 4px -1px rgba(60, 47, 47, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(60, 47, 47, 0.1), 0 4px 6px -2px rgba(60, 47, 47, 0.05);
+}
+
+/* Base Styles */
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: var(--font-body);
+    background-color: var(--color-oat-cream);
+    color: var(--color-espresso);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+    font-family: var(--font-heading);
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+/* Utility Classes */
+.pebble {
+    border-radius: 1.75rem;
+}
+
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-matcha) 0%, var(--color-clay) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+    display: none;
+}
+
+/* Smooth transitions */
+.transition-smooth {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
