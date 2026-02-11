@@ -1,0 +1,45 @@
+# Common big directories
+node_modules/
+dist/
+dist-ssr/
+.git/
+
+# Lock files (save tokens, often large)
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+
+# Assets and Binary files
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.svg
+*.ico
+*.pdf
+*.zip
+*.tar.gz
+*.mp3
+*.mp4
+*.wav
+*.ogg
+
+# Fonts
+*.woff
+*.woff2
+*.ttf
+*.eot
+
+# System and IDE files
+.DS_Store
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Environment files
+.env*
+*.local
