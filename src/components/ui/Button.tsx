@@ -35,10 +35,11 @@ interface ButtonProps
   extends ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   isLoading?: boolean;
+  as?: 'button' | 'span';
 }
 
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, isLoading, children, disabled, ...props }, ref) => {
+  ({ className, variant, size, isLoading, children, disabled, as = 'button', ...props }, ref) => {
     // Get background color based on variant
     const getVariantStyles = () => {
       switch (variant) {
@@ -70,12 +71,14 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
       }
     };
 
+    const Component = as;
+
     return (
-      <button
-        ref={ref}
+      <Component
+        ref={ref as any}
         className={clsx(buttonVariants({ variant, size }), className)}
         style={getVariantStyles()}
-        disabled={disabled || isLoading}
+        {...(as === 'button' && { disabled: disabled || isLoading })}
         {...props}
       >
         {isLoading ? (
@@ -105,7 +108,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
         ) : (
           children
         )}
-      </button>
+      </Component>
     );
   }
 );
