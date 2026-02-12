@@ -16,6 +16,7 @@
     "clsx": "^2.1.1",
     "comlink": "^4.4.2",
     "dexie": "^4.3.0",
+    "face-api.js": "^0.22.2",
     "fflate": "^0.8.2",
     "firebase": "^12.9.0",
     "framer-motion": "^12.34.0",

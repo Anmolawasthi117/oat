@@ -1,89 +1,96 @@
 /**
- * Face Detector Service
+ * Face Detector Service — Using face-api.js
  * 
- * Runs MediaPipe on the MAIN THREAD (not a worker).
- * Why? MediaPipe's WASM loader uses importScripts() internally,
- * which is not available in module workers (type: 'module').
- * MediaPipe already uses GPU delegation so it won't block the UI.
+ * Uses face-api.js with ResNet-34 FaceNet model for REAL face recognition.
+ * MediaPipe FaceLandmarker only gives geometry (landmark positions) which
+ * change with pose/lighting — terrible for identity matching.
+ * 
+ * face-api.js gives us real 128-dimensional FaceNet descriptors
+ * that represent facial IDENTITY, not geometry.
  */
 
-import { FilesetResolver, FaceLandmarker, type FaceLandmarkerResult } from '@mediapipe/tasks-vision';
+import * as faceapi from 'face-api.js';
 import type { FaceDetectionResult, FaceComparisonResult } from '../../types';
 import { log } from '../../lib/logger';
 
-let faceLandmarker: FaceLandmarker | null = null;
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+
+let modelsLoaded = false;
 
 async function initialize(): Promise<{ success: boolean; message: string }> {
-    // Skip if already initialized
-    if (faceLandmarker) {
-        log.ai.info('MediaPipe already initialized, skipping');
+    if (modelsLoaded) {
+        log.ai.info('face-api.js already loaded, skipping');
         return { success: true, message: 'Already initialized' };
     }
 
     try {
-        log.ai.info('Loading MediaPipe WASM runtime...');
+        log.ai.info('Loading face-api.js models from CDN...');
 
-        const vision = await FilesetResolver.forVisionTasks(
-            'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@latest/wasm'
-        );
+        // Load the 3 models we need:
+        // 1. TinyFaceDetector — fast face detection
+        // 2. FaceLandmark68Net — 68-point landmarks (for alignment)
+        // 3. FaceRecognitionNet — 128-dim FaceNet descriptor (for identity matching)
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
+        ]);
 
-        log.ai.info('Creating FaceLandmarker model...');
-
-        faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-            baseOptions: {
-                modelAssetPath:
-                    'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task',
-                delegate: 'GPU',
-            },
-            runningMode: 'IMAGE',
-            numFaces: 1,
-            minFaceDetectionConfidence: 0.5,
-            minFacePresenceConfidence: 0.5,
-        });
-
-        log.ai.success('MediaPipe FaceLandmarker ready');
-        return { success: true, message: 'MediaPipe ready' };
+        modelsLoaded = true;
+        log.ai.success('face-api.js models loaded (TinyFaceDetector + Landmarks + FaceRecognition)');
+        return { success: true, message: 'face-api.js ready' };
     } catch (error: any) {
-        log.ai.error('MediaPipe initialization failed', error.message);
+        log.ai.error('face-api.js model loading failed', error.message);
         return { success: false, message: error.message };
     }
 }
 
 async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDetectionResult> {
-    if (!faceLandmarker) {
-        throw new Error('FaceLandmarker not initialized. Call initialize() first.');
+    if (!modelsLoaded) {
+        throw new Error('Models not loaded. Call initialize() first.');
     }
 
     try {
-        log.ai.info('Detecting face...');
+        log.ai.info('Detecting face with face-api.js...');
 
-        let image: HTMLImageElement | ImageBitmap;
+        let image: HTMLImageElement;
 
         if (imageSource instanceof Blob) {
-            // Convert Blob to Image element for MediaPipe
             image = await blobToImage(imageSource);
         } else {
             image = imageSource;
         }
 
-        const result: FaceLandmarkerResult = faceLandmarker.detect(image as any);
+        // Detect face + landmarks + descriptor
+        const detection = await faceapi
+            .detectSingleFace(image, new faceapi.TinyFaceDetectorOptions({
+                inputSize: 416,
+                scoreThreshold: 0.5,
+            }))
+            .withFaceLandmarks()
+            .withFaceDescriptor();
 
-        if (!result.faceLandmarks || result.faceLandmarks.length === 0) {
+        if (!detection) {
             log.ai.warn('No face detected in image');
             return { hasFace: false };
         }
 
-        const landmarks = result.faceLandmarks[0];
-        const embedding = extractEmbedding(landmarks);
-        const boundingBox = calculateBoundingBox(landmarks);
+        // The descriptor is a Float32Array of 128 values — real FaceNet embedding
+        const embedding = Array.from(detection.descriptor);
+        const box = detection.detection.box;
 
-        log.ai.success('Face detected, embedding extracted (128-dim)');
+        log.ai.success(`Face detected! Descriptor: 128-dim FaceNet embedding, score: ${detection.detection.score.toFixed(2)}`);
 
         return {
             hasFace: true,
             embedding,
-            confidence: 0.9,
-            boundingBox,
+            confidence: detection.detection.score,
+            boundingBox: {
+                x: box.x,
+                y: box.y,
+                width: box.width,
+                height: box.height,
+            },
         };
     } catch (error: any) {
         log.ai.error('Face detection failed', error.message);
@@ -92,16 +99,18 @@ async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDet
 }
 
 function compareFaces(embedding1: number[], embedding2: number[]): FaceComparisonResult {
-    if (embedding1.length !== embedding2.length) {
-        throw new Error('Embeddings must have the same length');
-    }
+    // face-api.js uses Euclidean distance on FaceNet descriptors
+    // Typical thresholds: < 0.6 = same person
+    const distance = faceapi.euclideanDistance(
+        new Float32Array(embedding1),
+        new Float32Array(embedding2)
+    );
 
-    const distance = euclideanDistance(embedding1, embedding2);
     const THRESHOLD = 0.6;
     const isMatch = distance < THRESHOLD;
-    const confidence = Math.max(0, 1 - distance);
+    const confidence = Math.max(0, Math.min(1, 1 - distance));
 
-    log.ai.info(`Face comparison: distance=${distance.toFixed(3)}, match=${isMatch}`);
+    log.ai.info(`Face comparison: distance=${distance.toFixed(3)}, threshold=${THRESHOLD}, match=${isMatch}`);
 
     return { isMatch, distance, confidence };
 }
@@ -124,50 +133,7 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
     });
 }
 
-function extractEmbedding(landmarks: any[]): number[] {
-    const keyPoints = [
-        0, 10, 152, 234, 454,
-        33, 133, 362, 263,
-        1, 4, 5, 195, 197,
-        61, 291, 39, 269,
-    ];
-
-    const embedding: number[] = [];
-    for (const idx of keyPoints) {
-        if (landmarks[idx]) {
-            embedding.push(landmarks[idx].x);
-            embedding.push(landmarks[idx].y);
-            embedding.push(landmarks[idx].z || 0);
-        }
-    }
-
-    while (embedding.length < 128) embedding.push(0);
-    return embedding.slice(0, 128);
-}
-
-function calculateBoundingBox(landmarks: any[]) {
-    let minX = Infinity, minY = Infinity;
-    let maxX = -Infinity, maxY = -Infinity;
-
-    for (const point of landmarks) {
-        minX = Math.min(minX, point.x);
-        minY = Math.min(minY, point.y);
-        maxX = Math.max(maxX, point.x);
-        maxY = Math.max(maxY, point.y);
-    }
-
-    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
-}
-
-function euclideanDistance(a: number[], b: number[]): number {
-    let sum = 0;
-    for (let i = 0; i < a.length; i++) {
-        sum += Math.pow(a[i] - b[i], 2);
-    }
-    return Math.sqrt(sum);
-}
-
-// Export as a simple object (no worker, no Comlink)
+// Export as a simple service
 export const faceScanner = {
     initialize,
     detectFace,

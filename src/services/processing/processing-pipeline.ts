@@ -42,11 +42,21 @@ class ProcessingPipeline {
         const store = useProcessingStore.getState();
         const authStore = useAuthStore.getState();
 
-        // Get reference embedding
-        const referenceEmbedding = authStore.referenceFaceEmbedding;
-        if (!referenceEmbedding) {
+        // Get reference embedding — extract the number[] from the FaceEmbedding object
+        const refData = authStore.referenceFaceEmbedding;
+        if (!refData || !refData.embedding) {
             store.setError('No reference face set. Please calibrate first.');
             log.ai.error('No reference embedding found');
+            return;
+        }
+
+        const referenceEmbedding = refData.embedding;
+        log.ai.info(`Reference embedding: ${referenceEmbedding.length} dimensions`);
+
+        // Validate it's a 128-dim FaceNet descriptor (not old MediaPipe landmarks)
+        if (referenceEmbedding.length !== 128) {
+            store.setError(`Stale calibration data (${referenceEmbedding.length} dims, need 128). Please re-calibrate.`);
+            log.ai.error(`Reference embedding has wrong dimensions: ${referenceEmbedding.length} (expected 128). User needs to re-calibrate.`);
             return;
         }
 
@@ -59,7 +69,9 @@ class ProcessingPipeline {
         }
 
         // Get all unprocessed photos
-        const photos = await db.photos.where('processed').equals(0).toArray();
+        // NOTE: IndexedDB can't index booleans (false !== 0), so we filter in JS
+        const allPhotos = await db.photos.toArray();
+        const photos = allPhotos.filter(p => !p.processed);
         if (photos.length === 0) {
             log.ai.info('No unprocessed photos found');
             store.setStatus('complete');
