@@ -1,15 +1,14 @@
 import { wrap } from 'comlink';
+import type { FaceScannerAPI } from '../../workers/face-scanner';
 
 /**
  * Face Detector Service
- * Main thread wrapper for the Face Scanner worker
+ * Main thread wrapper for the Face Scanner Web Worker
  */
 
-// Create worker instance
 const worker = new Worker(
     new URL('../../workers/face-scanner.ts', import.meta.url),
     { type: 'module' }
 );
 
-// Wrap with Comlink to get typed async interface
-export const faceScanner = wrap<import('../../workers/face-scanner').FaceScannerAPI>(worker);
+export const faceScanner = wrap<FaceScannerAPI>(worker);

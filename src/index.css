@@ -1,31 +1,38 @@
 @import "tailwindcss";
 
-/* Import Google Fonts */
+/* Fonts */
 @import '@fontsource/instrument-serif';
 @import '@fontsource/geist-sans';
 
-/* CSS Custom Properties - The Breakfast Palette */
+/* ── The Breakfast Palette ───────────────────────────── */
 :root {
     /* Colors */
     --color-oat-cream: #FDFBF7;
     --color-paper: #F5F2EB;
-    --color-espresso: #3C2F2F;
+    --color-espresso: #2D2D2D;
     --color-warm-grey: #8C8580;
-    --color-matcha: #C3D9C3;
+    --color-matcha: #D6E6D0;
     --color-clay: #E0C9A6;
     --color-berry: #D48C95;
+    --color-sage: #A8C5A0;
+    --color-periwinkle: #B8C4E0;
+    --color-blush: #E8C4C8;
 
     /* Typography */
     --font-heading: 'Instrument Serif', serif;
     --font-body: 'Geist Sans', sans-serif;
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px 0 rgba(60, 47, 47, 0.05);
-    --shadow-md: 0 4px 6px -1px rgba(60, 47, 47, 0.1), 0 2px 4px -1px rgba(60, 47, 47, 0.06);
-    --shadow-lg: 0 10px 15px -3px rgba(60, 47, 47, 0.1), 0 4px 6px -2px rgba(60, 47, 47, 0.05);
+    /* Shadows — soft, diffused, never harsh */
+    --shadow-float: 0 4px 20px rgba(45, 45, 45, 0.06), 0 1px 4px rgba(45, 45, 45, 0.04);
+    --shadow-hover: 0 8px 32px rgba(45, 45, 45, 0.08), 0 2px 8px rgba(45, 45, 45, 0.05);
+    --shadow-polaroid: 0 2px 12px rgba(45, 45, 45, 0.1), 0 1px 3px rgba(45, 45, 45, 0.06);
+
+    /* Radius */
+    --radius-pebble: 1.75rem;
+    --radius-soft: 1.25rem;
 }
 
-/* Base Styles */
+/* ── Base ────────────────────────────────────────────── */
 * {
     box-sizing: border-box;
 }
@@ -38,6 +45,8 @@ body {
     color: var(--color-espresso);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    /* Subtle paper texture via noise */
+    background-image: url("data:image/svg+xml,%3Csvg width='200' height='200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.015'/%3E%3C/svg%3E");
 }
 
 h1,
@@ -47,23 +56,39 @@ h4,
 h5,
 h6 {
     font-family: var(--font-heading);
-    font-weight: 600;
-    line-height: 1.2;
+    font-weight: 400;
+    line-height: 1.15;
+    color: var(--color-espresso);
 }
 
-/* Utility Classes */
+/* ── Utility Classes ─────────────────────────────────── */
+
 .pebble {
-    border-radius: 1.75rem;
+    border-radius: var(--radius-pebble);
 }
 
-.text-gradient {
-    background: linear-gradient(135deg, var(--color-matcha) 0%, var(--color-clay) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
+/* Floating card look */
+.float-card {
+    background: var(--color-paper);
+    border-radius: var(--radius-pebble);
+    box-shadow: var(--shadow-float);
+    transition: box-shadow 0.3s ease, transform 0.3s ease;
 }
 
-/* Hide scrollbar but keep functionality */
+.float-card:hover {
+    box-shadow: var(--shadow-hover);
+}
+
+/* Polaroid style */
+.polaroid {
+    background: white;
+    border-radius: 4px;
+    padding: 8px 8px 32px 8px;
+    box-shadow: var(--shadow-polaroid);
+    transform-origin: center bottom;
+}
+
+/* Hide scrollbar */
 .hide-scrollbar {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -76,4 +101,44 @@ h6 {
 /* Smooth transitions */
 .transition-smooth {
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Breathing animation */
+@keyframes breathe {
+
+    0%,
+    100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.03);
+    }
+}
+
+.animate-breathe {
+    animation: breathe 3s ease-in-out infinite;
+}
+
+/* Sparkle animation */
+@keyframes sparkle {
+
+    0%,
+    100% {
+        opacity: 0;
+        transform: scale(0) rotate(0deg);
+    }
+
+    50% {
+        opacity: 1;
+        transform: scale(1) rotate(180deg);
+    }
+}
+
+/* Gradient text */
+.text-gradient {
+    background: linear-gradient(135deg, var(--color-matcha) 0%, var(--color-clay) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
 }

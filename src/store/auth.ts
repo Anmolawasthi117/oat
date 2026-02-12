@@ -9,14 +9,9 @@ import type { User, AuthMode, FaceEmbedding } from '../types';
  */
 
 interface AuthState {
-    // User data
     user: User | null;
     authMode: AuthMode;
-
-    // Reference face for matching
     referenceFaceEmbedding: FaceEmbedding | null;
-
-    // Loading states
     isLoading: boolean;
     error: string | null;
 
@@ -24,6 +19,7 @@ interface AuthState {
     setUser: (user: User | null) => void;
     setAuthMode: (mode: AuthMode) => void;
     setReferenceEmbedding: (embedding: number[]) => void;
+    setReferenceFaceEmbedding: (data: { embedding: number[]; capturedAt: number }) => void;
     clearReferenceEmbedding: () => void;
     setLoading: (loading: boolean) => void;
     setError: (error: string | null) => void;
@@ -31,14 +27,12 @@ interface AuthState {
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
-    // Initial state
     user: null,
     authMode: 'guest',
     referenceFaceEmbedding: null,
     isLoading: false,
     error: null,
 
-    // Actions
     setUser: (user) => set({ user }),
 
     setAuthMode: (mode) => set({ authMode: mode }),
@@ -51,17 +45,27 @@ export const useAuthStore = create<AuthState>((set) => ({
             },
         }),
 
+    // Called by CalibrationPage with { embedding, capturedAt }
+    setReferenceFaceEmbedding: (data) =>
+        set({
+            referenceFaceEmbedding: {
+                embedding: data.embedding,
+                timestamp: data.capturedAt,
+            },
+        }),
+
     clearReferenceEmbedding: () => set({ referenceFaceEmbedding: null }),
 
     setLoading: (loading) => set({ isLoading: loading }),
 
     setError: (error) => set({ error }),
 
-    reset: () => set({
-        user: null,
-        authMode: 'guest',
-        referenceFaceEmbedding: null,
-        isLoading: false,
-        error: null,
-    }),
+    reset: () =>
+        set({
+            user: null,
+            authMode: 'guest',
+            referenceFaceEmbedding: null,
+            isLoading: false,
+            error: null,
+        }),
 }));

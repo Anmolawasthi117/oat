@@ -1,229 +1,286 @@
-import { motion } from 'framer-motion';
+import { motion, useMotionValue, useTransform } from 'framer-motion';
 import { Button } from '../../components/ui';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui';
 import { APP } from '../../config/constants';
 import { springs } from '../../config/theme';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { AuthModal } from '../auth/AuthModal';
-import logoImg from '../../assets/logo.png';
+import { log } from '../../lib/logger';
 
 /**
- * Landing Page - Premium UX with microinteractions
+ * Landing Page — "The Welcome Mat"
+ * 
+ * Comfy Scrapbook aesthetic: fanned polaroids, breathing dropzone,
+ * editorial serif typography, personality-driven microcopy.
  */
+
+// Randomized taglines for personality
+const TAGLINES = [
+  'Too many photos? Let\'s find the good ones.',
+  'Thousands of photos. One you.',
+  'Find yourself in the chaos.',
+  'Your photos, tidied with care.',
+];
+
+const POLAROID_PHOTOS = [
+  { rotation: -12, x: -80, y: 20, color: '#D6E6D0', emoji: '🌿' },
+  { rotation: -5, x: -30, y: -10, color: '#E0C9A6', emoji: '☕' },
+  { rotation: 3, x: 20, y: 15, color: '#E8C4C8', emoji: '🌸' },
+  { rotation: 10, x: 70, y: -5, color: '#B8C4E0', emoji: '🦋' },
+  { rotation: -8, x: -50, y: 40, color: '#D6E6D0', emoji: '📸' },
+];
 
 export function LandingPage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [tagline] = useState(() => TAGLINES[Math.floor(Math.random() * TAGLINES.length)]);
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+
+  useEffect(() => {
+    log.ui.info('Landing page mounted');
+  }, []);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set((e.clientX - rect.left - rect.width / 2) / 40);
+    mouseY.set((e.clientY - rect.top - rect.height / 2) / 40);
+  };
 
   return (
     <>
-      <div 
-        className="min-h-screen flex items-center justify-center p-8"
+      <div
+        className="min-h-screen flex flex-col items-center justify-center p-6"
         style={{ backgroundColor: 'var(--color-oat-cream)' }}
+        onMouseMove={handleMouseMove}
       >
-        <div className="max-w-4xl w-full space-y-12">
-          {/* Hero Section with Stagger Animation */}
-          <motion.div 
-            className="text-center space-y-6"
+        <div className="max-w-2xl w-full text-center">
+
+          {/* ── Polaroid Pile ─────────────────────────── */}
+          <motion.div
+            className="relative mx-auto mb-12"
+            style={{ width: 280, height: 240 }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ duration: 0.6 }}
+            transition={{ duration: 0.8 }}
           >
-            <motion.img 
-              src={logoImg} 
-              alt={APP.NAME} 
-              className="w-40 h-40 mx-auto rounded-full shadow-xl"
-              initial={{ scale: 0, rotate: -180 }}
-              animate={{ scale: 1, rotate: 0 }}
-              transition={springs.bouncy}
-              whileHover={{ scale: 1.05, rotate: 5 }}
-              whileTap={{ scale: 0.95 }}
-            />
-            
-            <motion.h1 
-              className="text-7xl font-bold"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--color-espresso)',
-              }}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2, ...springs.gentle }}
-            >
-              {APP.NAME}
-            </motion.h1>
-            
-            <motion.p 
-              className="text-3xl italic"
-              style={{
-                fontFamily: 'var(--font-heading)',
-                color: 'var(--color-warm-grey)',
-              }}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.3, ...springs.gentle }}
-            >
-              {APP.TAGLINE}
-            </motion.p>
-
-            <motion.p
-              className="text-xl max-w-2xl mx-auto"
-              style={{ color: 'var(--color-warm-grey)' }}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, ...springs.gentle }}
-            >
-              Find yourself in thousands of photos. Powered by AI, secured by privacy.
-            </motion.p>
+            {POLAROID_PHOTOS.map((photo, i) => (
+              <PolaroidCard key={i} photo={photo} index={i} mouseX={mouseX} mouseY={mouseY} />
+            ))}
           </motion.div>
 
-          {/* CTA Section */}
-          <motion.div
-            className="flex gap-6 justify-center"
+          {/* ── Heading ───────────────────────────────── */}
+          <motion.h1
+            className="text-6xl md:text-7xl mb-4"
+            style={{
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-espresso)',
+              fontWeight: 400,
+              letterSpacing: '-0.02em',
+            }}
             initial={{ y: 30, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.5, ...springs.gentle }}
+            transition={{ delay: 0.3, ...springs.gentle }}
           >
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button 
-                variant="primary" 
+            {APP.NAME}
+          </motion.h1>
+
+          {/* ── Tagline ───────────────────────────────── */}
+          <motion.p
+            className="text-xl md:text-2xl mb-2"
+            style={{
+              fontFamily: 'var(--font-heading)',
+              color: 'var(--color-warm-grey)',
+              fontStyle: 'italic',
+            }}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.45, ...springs.gentle }}
+          >
+            {tagline}
+          </motion.p>
+
+          <motion.p
+            className="text-base mb-10 max-w-md mx-auto"
+            style={{ color: 'var(--color-warm-grey)' }}
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.55, ...springs.gentle }}
+          >
+            AI-powered face recognition that runs entirely in your browser. 
+            Your photos never leave your device.
+          </motion.p>
+
+          {/* ── CTA Button (Breathing) ────────────────── */}
+          <motion.div
+            className="mb-16"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.65, ...springs.gentle }}
+          >
+            <motion.div
+              whileHover={{ scale: 1.06 }}
+              whileTap={{ scale: 0.97 }}
+              animate={{ scale: [1, 1.02, 1] }}
+              transition={{
+                scale: {
+                  duration: 3,
+                  repeat: Infinity,
+                  ease: 'easeInOut',
+                },
+              }}
+            >
+              <Button
+                variant="primary"
                 size="lg"
-                className="text-xl px-12 py-6"
-                onClick={() => setShowAuthModal(true)}
+                className="text-xl px-14 py-6"
+                onClick={() => {
+                  log.ui.info('CTA clicked — opening auth modal');
+                  setShowAuthModal(true);
+                }}
               >
                 Start Tidying →
               </Button>
             </motion.div>
           </motion.div>
 
-          {/* Feature Cards with Stagger */}
-          <motion.div 
-            className="grid md:grid-cols-3 gap-8 mt-16"
-            initial="hidden"
-            animate="visible"
-            variants={{
-              visible: {
-                transition: {
-                  staggerChildren: 0.1,
-                  delayChildren: 0.6,
-                },
-              },
-            }}
-          >
-            {[
-              {
-                emoji: '🔒',
-                title: 'Private',
-                description: 'Your photos never leave your device. All processing happens locally in your browser.',
-              },
-              {
-                emoji: '⚡',
-                title: 'Fast',
-                description: 'WebAssembly + Web Workers = blazing-fast AI that feels instant.',
-              },
-              {
-                emoji: '🎨',
-                title: 'Beautiful',
-                description: 'A calm, tactile experience designed to feel like scrapbooking.',
-              },
-            ].map((feature, i) => (
-              <motion.div
-                key={i}
-                variants={{
-                  hidden: { y: 30, opacity: 0 },
-                  visible: { y: 0, opacity: 1 },
-                }}
-                whileHover={{ y: -8 }}
-                transition={springs.gentle}
-              >
-                <Card hover>
-                  <CardHeader>
-                    <div className="text-5xl mb-4">{feature.emoji}</div>
-                    <CardTitle className="text-2xl">{feature.title}</CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-base leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </motion.div>
-
-          {/* How It Works */}
+          {/* ── How It Works ──────────────────────────── */}
           <motion.div
-            className="mt-20 text-center"
+            className="mb-10"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1, duration: 0.6 }}
+            transition={{ delay: 0.9, duration: 0.6 }}
           >
-            <h2 
-              className="text-4xl font-bold mb-12"
+            <h2
+              className="text-3xl mb-8"
               style={{
                 fontFamily: 'var(--font-heading)',
                 color: 'var(--color-espresso)',
+                fontWeight: 400,
               }}
             >
-              How It Works
+              How it works
             </h2>
-            
-            <div className="flex flex-col md:flex-row items-center justify-center gap-8 text-left">
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
               {[
-                { step: '1', title: 'Take a selfie', desc: 'Show us who to look for' },
-                { step: '2', title: 'Upload photos', desc: 'From your device or Google Drive' },
-                { step: '3', title: 'AI does the magic', desc: 'Face detection finds your matches' },
-                { step: '4', title: 'Download & share', desc: 'Export as ZIP or save to Drive' },
-              ].map((item, i) => (
+                { num: '1', label: 'Take a selfie', icon: '🤳' },
+                { num: '2', label: 'Drop your photos', icon: '📂' },
+                { num: '3', label: 'AI sorts them', icon: '✨' },
+                { num: '4', label: 'Download yours', icon: '📥' },
+              ].map((step, i) => (
                 <motion.div
                   key={i}
-                  className="flex items-start gap-4 max-w-xs"
-                  initial={{ x: -30, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 1.2 + i * 0.1, ...springs.gentle }}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 1.0 + i * 0.1, ...springs.gentle }}
                 >
+                  <div className="text-3xl mb-2">{step.icon}</div>
                   <div
-                    className="text-3xl font-bold rounded-full w-14 h-14 flex items-center justify-center flex-shrink-0"
-                    style={{
-                      backgroundColor: 'var(--color-matcha)',
-                      color: 'var(--color-espresso)',
-                    }}
+                    className="text-sm font-medium mb-1"
+                    style={{ color: 'var(--color-espresso)' }}
                   >
-                    {item.step}
+                    Step {step.num}
                   </div>
-                  <div>
-                    <h3 
-                      className="text-xl font-semibold mb-1"
-                      style={{
-                        fontFamily: 'var(--font-heading)',
-                        color: 'var(--color-espresso)',
-                      }}
-                    >
-                      {item.title}
-                    </h3>
-                    <p style={{ color: 'var(--color-warm-grey)' }}>
-                      {item.desc}
-                    </p>
+                  <div className="text-sm" style={{ color: 'var(--color-warm-grey)' }}>
+                    {step.label}
                   </div>
                 </motion.div>
               ))}
             </div>
           </motion.div>
 
-          {/* Footer */}
-          <motion.p 
-            className="text-center text-sm mt-16"
+          {/* ── Feature Pills ─────────────────────────── */}
+          <motion.div
+            className="flex flex-wrap gap-3 justify-center mb-8"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.4 }}
+          >
+            {[
+              { label: 'Privacy-first', bg: 'var(--color-matcha)' },
+              { label: 'No upload needed', bg: 'var(--color-clay)' },
+              { label: 'Works offline', bg: 'var(--color-periwinkle)' },
+            ].map((pill, i) => (
+              <motion.span
+                key={i}
+                className="px-4 py-1.5 text-sm font-medium"
+                style={{
+                  backgroundColor: pill.bg,
+                  color: 'var(--color-espresso)',
+                  borderRadius: '999px',
+                }}
+                whileHover={{ scale: 1.05 }}
+              >
+                {pill.label}
+              </motion.span>
+            ))}
+          </motion.div>
+
+          {/* ── Footer ────────────────────────────────── */}
+          <motion.p
+            className="text-xs"
             style={{ color: 'var(--color-warm-grey)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.8 }}
+            transition={{ delay: 1.6 }}
           >
-            Version {APP.VERSION} • Built with ❤️ for privacy • No data ever leaves your device
+            v{APP.VERSION} · No data ever leaves your device
           </motion.p>
         </div>
       </div>
 
-      {/* Auth Modal */}
-      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+      />
     </>
+  );
+}
+
+/* ── Polaroid Card Component ─────────────────────────── */
+
+function PolaroidCard({
+  photo,
+  index,
+  mouseX,
+  mouseY,
+}: {
+  photo: typeof POLAROID_PHOTOS[0];
+  index: number;
+  mouseX: any;
+  mouseY: any;
+}) {
+  // Subtle parallax: each polaroid moves slightly with the mouse
+  const x = useTransform(mouseX, (v: number) => photo.x + v * (index + 1) * 0.3);
+  const y = useTransform(mouseY, (v: number) => photo.y + v * (index + 1) * 0.3);
+
+  return (
+    <motion.div
+      className="absolute left-1/2 top-1/2 polaroid"
+      style={{
+        x,
+        y,
+        width: 100,
+        height: 120,
+        marginLeft: -50,
+        marginTop: -60,
+        zIndex: index,
+      }}
+      initial={{ rotate: 0, opacity: 0, scale: 0.5 }}
+      animate={{ rotate: photo.rotation, opacity: 1, scale: 1 }}
+      transition={{ delay: 0.1 + index * 0.08, ...springs.bouncy }}
+      whileHover={{ scale: 1.1, rotate: 0, zIndex: 10 }}
+    >
+      <div
+        className="w-full flex items-center justify-center"
+        style={{
+          height: 80,
+          backgroundColor: photo.color,
+          borderRadius: 2,
+          fontSize: 32,
+        }}
+      >
+        {photo.emoji}
+      </div>
+    </motion.div>
   );
 }

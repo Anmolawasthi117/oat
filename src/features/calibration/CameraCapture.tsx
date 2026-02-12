@@ -1,7 +1,7 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '../../components/ui';
-import { springs } from '../../config/theme';
+import { log } from '../../lib/logger';
 
 interface CameraCaptureProps {
   onCapture: (blob: Blob) => void;
@@ -9,8 +9,7 @@ interface CameraCaptureProps {
 }
 
 /**
- * Camera Capture Component
- * Uses getUserMedia to access camera and capture selfie
+ * Camera Capture — Mirror selfie with face guide and countdown
  */
 
 export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
@@ -18,46 +17,46 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [countdown, setCountdown] = useState<number | null>(null);
-  const [error, setError] = useState<string>('');
+  const [error, setError] = useState('');
 
   useEffect(() => {
     startCamera();
-    return () => {
-      stopCamera();
-    };
+    return () => stopCamera();
   }, []);
 
   const startCamera = async () => {
     try {
+      log.ui.info('Requesting camera access...');
+
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'user',
-          width: { ideal: 1280 },
-          height: { ideal: 720 }
-        }
+        video: { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
       });
-      
+
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
       }
+
       setStream(mediaStream);
+      log.ui.success('Camera stream active');
     } catch (err: any) {
-      console.error('❌ Camera access failed:', err);
-      setError('Unable to access camera. Please grant camera permissions.');
+      log.ui.error('Camera access denied', err.message);
+      setError('Camera access denied. Please allow camera permissions and try again.');
     }
   };
 
   const stopCamera = () => {
     if (stream) {
-      stream.getTracks().forEach(track => track.stop());
+      stream.getTracks().forEach((t) => t.stop());
+      log.ui.info('Camera stream stopped');
     }
   };
 
-  const captureWithCountdown = () => {
+  const startCountdown = () => {
+    log.ui.info('Starting 3-second countdown...');
     setCountdown(3);
-    
+
     const timer = setInterval(() => {
-      setCountdown(prev => {
+      setCountdown((prev) => {
         if (prev === null || prev <= 1) {
           clearInterval(timer);
           return null;
@@ -66,9 +65,7 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
       });
     }, 1000);
 
-    setTimeout(() => {
-      capturePhoto();
-    }, 3000);
+    setTimeout(() => capturePhoto(), 3000);
   };
 
   const capturePhoto = () => {
@@ -76,7 +73,6 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
 
     const video = videoRef.current;
     const canvas = canvasRef.current;
-    
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
@@ -85,133 +81,114 @@ export function CameraCapture({ onCapture, onCancel }: CameraCaptureProps) {
 
     ctx.drawImage(video, 0, 0);
 
-    canvas.toBlob((blob) => {
-      if (blob) {
-        stopCamera();
-        onCapture(blob);
-      }
-    }, 'image/jpeg', 0.9);
+    canvas.toBlob(
+      (blob) => {
+        if (blob) {
+          log.ui.success('Image captured', { size: blob.size });
+          stopCamera();
+          onCapture(blob);
+        }
+      },
+      'image/jpeg',
+      0.9
+    );
   };
 
   if (error) {
     return (
-      <motion.div
-        className="text-center p-8"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-      >
-        <p className="text-xl mb-4" style={{ color: 'var(--color-berry)' }}>
+      <div className="text-center py-8">
+        <p className="text-base mb-4" style={{ color: 'var(--color-berry)' }}>
           {error}
         </p>
         <Button onClick={onCancel} variant="secondary">
           Go Back
         </Button>
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <div className="relative">
-      {/* Video Preview */}
-      <div className="relative overflow-hidden" style={{ borderRadius: '1.75rem' }}>
+    <div>
+      {/* Video preview */}
+      <div className="relative overflow-hidden" style={{ borderRadius: 'var(--radius-pebble)' }}>
         <video
           ref={videoRef}
           autoPlay
           playsInline
           muted
           className="w-full"
-          style={{ 
-            transform: 'scaleX(-1)', // Mirror effect
-            maxHeight: '500px',
+          style={{
+            transform: 'scaleX(-1)',
+            maxHeight: 420,
             objectFit: 'cover',
           }}
         />
 
-        {/* Face Overlay Frame */}
+        {/* Face guide oval */}
         <motion.div
           className="absolute inset-0 flex items-center justify-center pointer-events-none"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          transition={{ delay: 0.3 }}
+          transition={{ delay: 0.5 }}
         >
           <div
-            className="border-4 rounded-full"
             style={{
-              width: '280px',
-              height: '350px',
-              borderColor: 'var(--color-matcha)',
-              borderStyle: 'dashed',
-              opacity: 0.6,
+              width: 200,
+              height: 260,
+              border: '3px dashed var(--color-matcha)',
+              borderRadius: '50%',
+              opacity: 0.5,
             }}
           />
         </motion.div>
 
-        {/* Countdown Overlay */}
+        {/* Countdown overlay */}
         {countdown !== null && (
           <motion.div
             className="absolute inset-0 flex items-center justify-center"
-            style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}
-            initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0, scale: 1.2 }}
+            style={{ backgroundColor: 'rgba(0,0,0,0.4)' }}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
           >
-            <motion.div
-              className="text-9xl font-bold"
+            <motion.span
+              className="text-8xl font-bold"
               style={{ color: 'var(--color-matcha)' }}
-              animate={{ scale: [1, 1.2, 1] }}
-              transition={{ duration: 0.5, repeat: Infinity }}
+              key={countdown}
+              initial={{ scale: 0.5, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 1.5, opacity: 0 }}
             >
               {countdown}
-            </motion.div>
+            </motion.span>
           </motion.div>
         )}
       </div>
 
-      {/* Hidden canvas for capture */}
       <canvas ref={canvasRef} style={{ display: 'none' }} />
 
       {/* Controls */}
-      <motion.div
-        className="flex gap-4 justify-center mt-6"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
-      >
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+      <div className="flex gap-3 justify-center mt-5">
+        <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
           <Button
             variant="primary"
             size="lg"
-            onClick={captureWithCountdown}
+            onClick={startCountdown}
             disabled={countdown !== null}
           >
-            <span className="flex items-center gap-2">
-              <span className="text-2xl">📸</span>
-              <span>Capture Selfie</span>
-            </span>
+            📸 Capture
           </Button>
         </motion.div>
-        
-        <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+
+        <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
           <Button variant="outline" size="lg" onClick={onCancel}>
             Cancel
           </Button>
         </motion.div>
-      </motion.div>
+      </div>
 
-      {/* Instructions */}
-      <motion.div
-        className="mt-6 text-center"
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-      >
-        <p className="text-lg" style={{ color: 'var(--color-warm-grey)' }}>
-          Position your face in the oval and click "Capture Selfie"
-        </p>
-        <p className="text-sm mt-2" style={{ color: 'var(--color-warm-grey)' }}>
-          We'll use this to find you in your photos. Your photo stays on your device.
-        </p>
-      </motion.div>
+      <p className="text-center text-sm mt-4" style={{ color: 'var(--color-warm-grey)' }}>
+        Center your face in the oval, then click Capture
+      </p>
     </div>
   );
 }

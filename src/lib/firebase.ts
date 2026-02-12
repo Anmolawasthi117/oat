@@ -1,11 +1,10 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, type Auth } from 'firebase/auth';
+import { log } from './logger';
 
 /**
  * Firebase Configuration
- * 
- * Following official Firebase v11 modular SDK documentation.
- * Environment variables must be set in .env file.
+ * Uses VITE_ env variables set in .env
  */
 
 const firebaseConfig = {
@@ -17,23 +16,28 @@ const firebaseConfig = {
     appId: import.meta.env.VITE_FIREBASE_APP_ID,
 };
 
-// Initialize Firebase
 let app: FirebaseApp;
 let auth: Auth;
 let googleProvider: GoogleAuthProvider;
 
 try {
+    log.auth.info('Initializing Firebase...', {
+        projectId: firebaseConfig.projectId,
+        authDomain: firebaseConfig.authDomain,
+        hasApiKey: !!firebaseConfig.apiKey,
+    });
+
     app = initializeApp(firebaseConfig);
     auth = getAuth(app);
     googleProvider = new GoogleAuthProvider();
 
-    // Optional: Add scopes for Google Drive access
+    // Add scopes for Google Drive access
     googleProvider.addScope('https://www.googleapis.com/auth/drive.readonly');
     googleProvider.addScope('https://www.googleapis.com/auth/drive.file');
 
-    console.log('✅ Firebase initialized successfully');
+    log.auth.success('Firebase initialized', { projectId: firebaseConfig.projectId });
 } catch (error) {
-    console.error('❌ Firebase initialization failed:', error);
+    log.auth.error('Firebase initialization failed', error);
     throw error;
 }
 
@@ -43,9 +47,15 @@ export { app, auth, googleProvider };
  * Check if Firebase is properly configured
  */
 export function isFirebaseConfigured(): boolean {
-    return !!(
+    const configured = !!(
         import.meta.env.VITE_FIREBASE_API_KEY &&
         import.meta.env.VITE_FIREBASE_AUTH_DOMAIN &&
         import.meta.env.VITE_FIREBASE_PROJECT_ID
     );
+
+    if (!configured) {
+        log.auth.warn('Firebase not fully configured — check .env variables');
+    }
+
+    return configured;
 }

@@ -1,8 +1,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '../../components/ui';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui';
 import { useAuth } from './useAuth';
 import { springs } from '../../config/theme';
+import { log } from '../../lib/logger';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -10,20 +10,25 @@ interface AuthModalProps {
 }
 
 /**
- * Authentication Modal - Premium UX with smooth animations
+ * Auth Modal — Warm, inviting, two clear paths
  */
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
-  const { signInWithGoogle, continueAsGuest, isLoading } = useAuth();
+  const { signInWithGoogle, continueAsGuest, isLoading, authError } = useAuth();
 
   const handleGuestMode = () => {
+    log.auth.info('Guest mode selected');
     continueAsGuest();
     onClose();
   };
 
   const handleGoogleSignIn = async () => {
+    log.auth.info('Google sign-in selected');
     await signInWithGoogle();
-    onClose();
+    // Only close if no error occurred
+    if (!authError) {
+      onClose();
+    }
   };
 
   return (
@@ -32,7 +37,8 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 z-40"
+            style={{ backgroundColor: 'rgba(45, 45, 45, 0.3)', backdropFilter: 'blur(8px)' }}
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -42,112 +48,105 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           {/* Modal */}
           <div className="fixed inset-0 flex items-center justify-center z-50 p-4">
             <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="float-card p-8 max-w-md w-full"
+              initial={{ scale: 0.92, opacity: 0, y: 30 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              exit={{ scale: 0.92, opacity: 0, y: 30 }}
               transition={springs.gentle}
             >
-              <Card className="max-w-md w-full">
-                <CardHeader>
-                  <CardTitle className="text-3xl text-center">
-                    Let's Get Started
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p 
-                    className="text-center mb-8 text-lg"
-                    style={{ color: 'var(--color-warm-grey)' }}
+              {/* Header */}
+              <div className="text-center mb-8">
+                <motion.div
+                  className="text-5xl mb-4"
+                  animate={{ rotate: [0, 5, -5, 0] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                >
+                  👋
+                </motion.div>
+                <h2
+                  className="text-3xl mb-2"
+                  style={{
+                    fontFamily: 'var(--font-heading)',
+                    color: 'var(--color-espresso)',
+                    fontWeight: 400,
+                  }}
+                >
+                  Let's get started
+                </h2>
+                <p className="text-base" style={{ color: 'var(--color-warm-grey)' }}>
+                  Choose how you'd like to tidy your photos
+                </p>
+              </div>
+
+              {/* Buttons */}
+              <div className="space-y-4 mb-6">
+                {/* Guest Mode — Primary */}
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-lg py-5"
+                    onClick={handleGuestMode}
+                    disabled={isLoading}
                   >
-                    Choose how you'd like to begin tidying your photos
-                  </p>
+                    <span className="flex items-center justify-center gap-3">
+                      <span className="text-xl">🚀</span>
+                      <span>Start Instantly</span>
+                    </span>
+                  </Button>
+                </motion.div>
 
-                  <div className="space-y-4">
-                    {/* Guest Mode */}
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        className="w-full text-lg py-6"
-                        onClick={handleGuestMode}
-                        disabled={isLoading}
-                      >
-                        <span className="flex items-center justify-center gap-3">
-                          <span className="text-2xl">🚀</span>
-                          <span>Start Instantly (Guest Mode)</span>
-                        </span>
-                      </Button>
-                    </motion.div>
+                {/* Divider */}
+                <div className="flex items-center gap-4">
+                  <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-clay)' }} />
+                  <span className="text-sm" style={{ color: 'var(--color-warm-grey)' }}>or</span>
+                  <div className="flex-1 h-px" style={{ backgroundColor: 'var(--color-clay)' }} />
+                </div>
 
-                    <div className="relative">
-                      <div className="absolute inset-0 flex items-center">
-                        <div 
-                          className="w-full border-t"
-                          style={{ borderColor: 'var(--color-warm-grey)' }}
-                        />
-                      </div>
-                      <div className="relative flex justify-center text-sm">
-                        <span 
-                          className="px-4"
-                          style={{ 
-                            backgroundColor: 'var(--color-paper)',
-                            color: 'var(--color-warm-grey)',
-                          }}
-                        >
-                          or
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Google Drive Mode */}
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      <Button
-                        variant="secondary"
-                        size="lg"
-                        className="w-full text-lg py-6"
-                        onClick={handleGoogleSignIn}
-                        isLoading={isLoading}
-                        disabled={isLoading}
-                      >
-                        <span className="flex items-center justify-center gap-3">
-                          <span className="text-2xl">📸</span>
-                          <span>Connect Google Drive</span>
-                        </span>
-                      </Button>
-                    </motion.div>
-                  </div>
-
-                  {/* Info Cards */}
-                  <div className="mt-8 space-y-3">
-                    <InfoRow 
-                      icon="🔒" 
-                      title="Guest Mode"
-                      text="Local files only, instant access"
-                    />
-                    <InfoRow 
-                      icon="☁️" 
-                      title="Google Drive"
-                      text="Access photos from your Drive library"
-                    />
-                  </div>
-
-                  {/* Privacy Note */}
-                  <motion.p
-                    className="mt-6 text-center text-sm"
-                    style={{ color: 'var(--color-warm-grey)' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
+                {/* Google Drive */}
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    variant="secondary"
+                    size="lg"
+                    className="w-full text-lg py-5"
+                    onClick={handleGoogleSignIn}
+                    isLoading={isLoading}
+                    disabled={isLoading}
                   >
-                    🔐 All processing happens in your browser. Your photos never leave your device.
-                  </motion.p>
-                </CardContent>
-              </Card>
+                    <span className="flex items-center justify-center gap-3">
+                      <span className="text-xl">☁️</span>
+                      <span>Connect Google Drive</span>
+                    </span>
+                  </Button>
+                </motion.div>
+              </div>
+
+              {/* Error message */}
+              {authError && (
+                <motion.div
+                  className="p-4 mb-4 text-sm"
+                  style={{
+                    backgroundColor: 'rgba(212, 140, 149, 0.15)',
+                    borderRadius: 'var(--radius-soft)',
+                    color: 'var(--color-berry)',
+                  }}
+                  initial={{ opacity: 0, y: -8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  ⚠️ {authError}
+                </motion.div>
+              )}
+
+              {/* Info rows */}
+              <div className="space-y-2 mb-4">
+                <InfoPill icon="🔒" text="Guest = local files only, instant access" />
+                <InfoPill icon="☁️" text="Google Drive = import photos from your cloud" />
+              </div>
+
+              {/* Privacy note */}
+              <p className="text-center text-xs" style={{ color: 'var(--color-warm-grey)' }}>
+                🔐 Everything runs in your browser. Nothing is uploaded.
+              </p>
             </motion.div>
           </div>
         </>
@@ -156,32 +155,20 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   );
 }
 
-function InfoRow({ icon, title, text }: { icon: string; title: string; text: string }) {
+function InfoPill({ icon, text }: { icon: string; text: string }) {
   return (
     <motion.div
-      className="flex items-center gap-3 p-3 rounded-lg"
-      style={{ backgroundColor: 'var(--color-oat-cream)' }}
-      whileHover={{ x: 4 }}
+      className="flex items-center gap-2 px-4 py-2.5 text-sm"
+      style={{
+        backgroundColor: 'var(--color-oat-cream)',
+        borderRadius: 'var(--radius-soft)',
+        color: 'var(--color-warm-grey)',
+      }}
+      whileHover={{ x: 3 }}
       transition={springs.snappy}
     >
-      <span className="text-2xl">{icon}</span>
-      <div>
-        <div 
-          className="font-semibold text-sm"
-          style={{ 
-            fontFamily: 'var(--font-heading)',
-            color: 'var(--color-espresso)',
-          }}
-        >
-          {title}
-        </div>
-        <div 
-          className="text-xs"
-          style={{ color: 'var(--color-warm-grey)' }}
-        >
-          {text}
-        </div>
-      </div>
+      <span>{icon}</span>
+      <span>{text}</span>
     </motion.div>
   );
 }

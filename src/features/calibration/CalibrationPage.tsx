@@ -2,55 +2,79 @@ import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui';
-import { Card, CardHeader, CardTitle, CardContent } from '../../components/ui';
 import { CameraCapture } from './CameraCapture';
 import { faceScanner } from '../../services/ai/face-detector';
 import { useAuthStore } from '../../store/auth';
 import { springs } from '../../config/theme';
+import { log } from '../../lib/logger';
 
 /**
- * Calibration Page - Reference Selfie Capture
- * User takes/uploads a selfie for face recognition
+ * Calibration Page — "First, who are we looking for?"
+ * 
+ * Comfy vibe: sparkle animations, randomized compliments, warm microcopy.
  */
 
-type CalibrationStep = 'intro' | 'camera' | 'upload' | 'processing' | 'success' | 'error';
+type Step = 'intro' | 'camera' | 'processing' | 'success' | 'error';
+
+const COMPLIMENTS = [
+  'Nice smile! 😊',
+  'Looking great! ✨',
+  'Perfect lighting! ☀️',
+  'Love the energy! 🎉',
+  'Great photo! 📸',
+  'You look amazing! 💫',
+];
 
 export function CalibrationPage() {
-  const [step, setStep] = useState<CalibrationStep>('intro');
+  const [step, setStep] = useState<Step>('intro');
   const [errorMessage, setErrorMessage] = useState('');
+  const [compliment] = useState(() => COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]);
   const { setReferenceFaceEmbedding, setLoading, setError } = useAuthStore();
   const navigate = useNavigate();
 
-  const handleCameraCapture = async (blob: Blob) => {
+  const processFace = async (blob: Blob) => {
     setStep('processing');
     setLoading(true);
+    log.ai.info('Starting face detection on captured image...');
 
     try {
-      // Initialize worker if needed
-      await faceScanner.initialize();
+      log.ai.info('Initializing MediaPipe worker...');
+      const initResult = await faceScanner.initialize();
+      log.ai.info('Worker init result:', initResult);
 
-      // Detect face and extract embedding
-      const result = await faceScanner.detectFace(blob);
-
-      if (!result.hasFace) {
-        throw new Error('No face detected. Please try again with better lighting.');
+      if (!initResult.success) {
+        throw new Error(`ML model failed to load: ${initResult.message}`);
       }
 
-      // Store embedding in state
+      log.ai.info('Running face detection...');
+      const result = await faceScanner.detectFace(blob);
+      log.ai.info('Detection result:', { hasFace: result.hasFace, confidence: result.confidence });
+
+      if (!result.hasFace) {
+        throw new Error('No face detected. Try again with better lighting.');
+      }
+
+      if (!result.embedding) {
+        throw new Error('Face found but embedding extraction failed.');
+      }
+
+      log.ai.success('Face embedding extracted', { dimensions: result.embedding.length });
+
       setReferenceFaceEmbedding({
         embedding: result.embedding,
         capturedAt: Date.now(),
       });
 
+      log.storage.success('Reference embedding saved to store');
       setStep('success');
-      
-      // Navigate to ingestion after 2 seconds
+
       setTimeout(() => {
+        log.ui.info('Navigating to ingestion page...');
         navigate('/ingestion');
-      }, 2000);
+      }, 2500);
     } catch (err: any) {
-      console.error('❌ Face detection failed:', err);
-      setErrorMessage(err.message || 'Failed to process selfie. Please try again.');
+      log.ai.error('Face detection failed', err.message);
+      setErrorMessage(err.message || 'Something went wrong. Please try again.');
       setError(err.message);
       setStep('error');
     } finally {
@@ -58,234 +82,253 @@ export function CalibrationPage() {
     }
   };
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
-
-    handleCameraCapture(file);
+    log.ui.info('Photo uploaded from device', { name: file.name, size: file.size });
+    processFace(file);
   };
 
   return (
-    <div 
-      className="min-h-screen flex items-center justify-center p-8"
+    <div
+      className="min-h-screen flex items-center justify-center p-6"
       style={{ backgroundColor: 'var(--color-oat-cream)' }}
     >
-      <div className="max-w-3xl w-full">
+      <div className="max-w-xl w-full">
         <AnimatePresence mode="wait">
-          {/* Intro Step */}
+
+          {/* ── Intro ─────────────────────────────────── */}
           {step === 'intro' && (
             <motion.div
               key="intro"
+              className="float-card p-8 text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={springs.gentle}
             >
-              <Card className="text-center">
-                <CardHeader>
-                  <motion.div
-                    className="text-8xl mb-6"
-                    animate={{ rotate: [0, 10, -10, 0] }}
-                    transition={{ duration: 2, repeat: Infinity }}
+              <motion.div
+                className="text-6xl mb-6"
+                animate={{ rotate: [0, 8, -8, 0] }}
+                transition={{ duration: 2.5, repeat: Infinity }}
+              >
+                🤳
+              </motion.div>
+
+              <h1
+                className="text-4xl mb-3"
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-espresso)',
+                  fontWeight: 400,
+                }}
+              >
+                First, who are we looking for?
+              </h1>
+
+              <p className="text-lg mb-8" style={{ color: 'var(--color-warm-grey)' }}>
+                Take a quick selfie or upload a photo of yourself.
+              </p>
+
+              <div className="space-y-3 max-w-sm mx-auto">
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <Button
+                    variant="primary"
+                    size="lg"
+                    className="w-full text-lg py-5"
+                    onClick={() => {
+                      log.ui.info('Camera capture selected');
+                      setStep('camera');
+                    }}
                   >
-                    📸
-                  </motion.div>
-                  <CardTitle className="text-4xl">
-                    Let's Calibrate
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <p className="text-xl mb-8 max-w-xl mx-auto" style={{ color: 'var(--color-warm-grey)' }}>
-                    Take a quick selfie so we know who to look for in your photo collection.
-                  </p>
+                    <span className="flex items-center justify-center gap-3">
+                      <span className="text-xl">📷</span>
+                      <span>Use Camera</span>
+                    </span>
+                  </Button>
+                </motion.div>
 
-                  <div className="space-y-4">
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                      <Button
-                        variant="primary"
-                        size="lg"
-                        className="w-full max-w-md text-xl py-6"
-                        onClick={() => setStep('camera')}
-                      >
-                        <span className="flex items-center justify-center gap-3">
-                          <span className="text-3xl">📷</span>
-                          <span>Use Camera</span>
-                        </span>
-                      </Button>
-                    </motion.div>
+                <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                  <label className="block cursor-pointer">
+                    <input
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleFileUpload}
+                    />
+                    <Button
+                      variant="secondary"
+                      size="lg"
+                      className="w-full text-lg py-5"
+                      as="span"
+                    >
+                      <span className="flex items-center justify-center gap-3">
+                        <span className="text-xl">🖼️</span>
+                        <span>Upload Photo</span>
+                      </span>
+                    </Button>
+                  </label>
+                </motion.div>
+              </div>
 
-                    <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
-                      <label className="block">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={handleFileUpload}
-                        />
-                        <Button
-                          variant="secondary"
-                          size="lg"
-                          className="w-full max-w-md text-xl py-6"
-                          as="span"
-                        >
-                          <span className="flex items-center justify-center gap-3">
-                            <span className="text-3xl">🖼️</span>
-                            <span>Upload Photo</span>
-                          </span>
-                        </Button>
-                      </label>
-                    </motion.div>
-                  </div>
-
-                  <motion.div
-                    className="mt-8 p-4 rounded-lg max-w-md mx-auto"
-                    style={{ backgroundColor: 'var(--color-oat-cream)' }}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                  >
-                    <p className="text-sm" style={{ color: 'var(--color-warm-grey)' }}>
-                      💡 <strong>Tips:</strong> Make sure your face is well-lit and clearly visible. This helps our AI find you in your photos!
-                    </p>
-                  </motion.div>
-                </CardContent>
-              </Card>
+              <motion.p
+                className="mt-8 text-sm"
+                style={{ color: 'var(--color-warm-grey)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.4 }}
+              >
+                💡 Good lighting helps AI find you more accurately.
+                <br />
+                Your photo stays on your device — always.
+              </motion.p>
             </motion.div>
           )}
 
-          {/* Camera Step */}
+          {/* ── Camera ────────────────────────────────── */}
           {step === 'camera' && (
             <motion.div
               key="camera"
+              className="float-card p-6"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={springs.gentle}
             >
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-3xl text-center">
-                    Say Cheese! 😊
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <CameraCapture
-                    onCapture={handleCameraCapture}
-                    onCancel={() => setStep('intro')}
-                  />
-                </CardContent>
-              </Card>
+              <h2
+                className="text-2xl text-center mb-4"
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-espresso)',
+                  fontWeight: 400,
+                }}
+              >
+                Say cheese! 😊
+              </h2>
+              <CameraCapture
+                onCapture={processFace}
+                onCancel={() => setStep('intro')}
+              />
             </motion.div>
           )}
 
-          {/* Processing Step */}
+          {/* ── Processing ────────────────────────────── */}
           {step === 'processing' && (
             <motion.div
               key="processing"
+              className="float-card p-10 text-center"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={springs.gentle}
             >
-              <Card className="text-center">
-                <CardContent>
-                  <motion.div
-                    className="text-9xl mb-6"
-                    animate={{ scale: [1, 1.2, 1], rotate: [0, 360] }}
-                    transition={{ duration: 2, repeat: Infinity }}
-                  >
-                    🔮
-                  </motion.div>
-                  <h2 
-                    className="text-3xl font-bold mb-4"
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      color: 'var(--color-espresso)',
-                    }}
-                  >
-                    Analyzing Face...
-                  </h2>
-                  <p className="text-lg" style={{ color: 'var(--color-warm-grey)' }}>
-                    Our AI is learning your facial features
-                  </p>
-                </CardContent>
-              </Card>
+              {/* Sparkle ring */}
+              <div className="relative w-32 h-32 mx-auto mb-6">
+                <motion.div
+                  className="absolute inset-0 rounded-full"
+                  style={{ border: '3px dashed var(--color-matcha)' }}
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 3, repeat: Infinity, ease: 'linear' }}
+                />
+                <div className="absolute inset-3 rounded-full flex items-center justify-center text-5xl"
+                  style={{ backgroundColor: 'var(--color-paper)' }}
+                >
+                  🧠
+                </div>
+              </div>
+
+              <h2
+                className="text-3xl mb-2"
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-espresso)',
+                  fontWeight: 400,
+                }}
+              >
+                Analyzing...
+              </h2>
+              <p style={{ color: 'var(--color-warm-grey)' }}>
+                Learning your facial features
+              </p>
             </motion.div>
           )}
 
-          {/* Success Step */}
+          {/* ── Success ───────────────────────────────── */}
           {step === 'success' && (
             <motion.div
               key="success"
-              initial={{ opacity: 0, scale: 0.8 }}
+              className="float-card p-10 text-center"
+              initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               transition={springs.bouncy}
             >
-              <Card className="text-center">
-                <CardContent>
-                  <motion.div
-                    className="text-9xl mb-6"
-                    initial={{ scale: 0, rotate: -180 }}
-                    animate={{ scale: 1, rotate: 0 }}
-                    transition={springs.bouncy}
-                  >
-                    ✨
-                  </motion.div>
-                  <h2 
-                    className="text-4xl font-bold mb-4"
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      color: 'var(--color-espresso)',
-                    }}
-                  >
-                    Perfect!
-                  </h2>
-                  <p className="text-xl" style={{ color: 'var(--color-warm-grey)' }}>
-                    We've got your reference. Let's find your photos!
-                  </p>
-                </CardContent>
-              </Card>
+              <motion.div
+                className="text-7xl mb-4"
+                initial={{ scale: 0, rotate: -180 }}
+                animate={{ scale: 1, rotate: 0 }}
+                transition={springs.bouncy}
+              >
+                ✨
+              </motion.div>
+
+              <h2
+                className="text-3xl mb-2"
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-espresso)',
+                  fontWeight: 400,
+                }}
+              >
+                {compliment}
+              </h2>
+              <p className="text-lg" style={{ color: 'var(--color-warm-grey)' }}>
+                Got it! Now let's find your photos.
+              </p>
             </motion.div>
           )}
 
-          {/* Error Step */}
+          {/* ── Error ─────────────────────────────────── */}
           {step === 'error' && (
             <motion.div
               key="error"
+              className="float-card p-8 text-center"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={springs.gentle}
             >
-              <Card className="text-center">
-                <CardContent>
-                  <div className="text-7xl mb-6">😔</div>
-                  <h2 
-                    className="text-3xl font-bold mb-4"
-                    style={{
-                      fontFamily: 'var(--font-heading)',
-                      color: 'var(--color-berry)',
-                    }}
-                  >
-                    Oops!
-                  </h2>
-                  <p className="text-lg mb-6" style={{ color: 'var(--color-warm-grey)' }}>
-                    {errorMessage}
-                  </p>
-                  <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                    <Button
-                      variant="primary"
-                      size="lg"
-                      onClick={() => setStep('intro')}
-                    >
-                      Try Again
-                    </Button>
-                  </motion.div>
-                </CardContent>
-              </Card>
+              <div className="text-5xl mb-4">😅</div>
+
+              <h2
+                className="text-2xl mb-2"
+                style={{
+                  fontFamily: 'var(--font-heading)',
+                  color: 'var(--color-berry)',
+                  fontWeight: 400,
+                }}
+              >
+                Hmm, that didn't work
+              </h2>
+
+              <p className="mb-6" style={{ color: 'var(--color-warm-grey)' }}>
+                {errorMessage}
+              </p>
+
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={() => {
+                    setErrorMessage('');
+                    setStep('intro');
+                  }}
+                >
+                  Try Again
+                </Button>
+              </motion.div>
             </motion.div>
           )}
+
         </AnimatePresence>
       </div>
     </div>
   );
 }
-
