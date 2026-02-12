@@ -1,12 +1,15 @@
 /**
- * Face Detector Service — Using face-api.js
+ * Face Detector Service — Using face-api.js with SSD MobileNet v1
  * 
  * Uses face-api.js with ResNet-34 FaceNet model for REAL face recognition.
- * MediaPipe FaceLandmarker only gives geometry (landmark positions) which
- * change with pose/lighting — terrible for identity matching.
  * 
- * face-api.js gives us real 128-dimensional FaceNet descriptors
- * that represent facial IDENTITY, not geometry.
+ * UPGRADED: TinyFaceDetector → SSD MobileNet v1
+ * - TinyFaceDetector is fast but weak — misses faces often, poor crops
+ * - SSD MobileNet v1 is the standard, much more accurate detector
+ * - Better face crops → better landmarks → better 128-dim descriptors
+ * 
+ * Also detects ALL faces in a photo (not just one) so group photos
+ * where the user appears alongside others will still match.
  */
 
 import * as faceapi from 'face-api.js';
@@ -24,20 +27,20 @@ async function initialize(): Promise<{ success: boolean; message: string }> {
     }
 
     try {
-        log.ai.info('Loading face-api.js models from CDN...');
+        log.ai.info('Loading face-api.js models from CDN (SSD MobileNet v1)...');
 
         // Load the 3 models we need:
-        // 1. TinyFaceDetector — fast face detection
-        // 2. FaceLandmark68Net — 68-point landmarks (for alignment)
+        // 1. SSD MobileNet v1 — accurate face detection (replaces TinyFaceDetector)
+        // 2. FaceLandmark68Net — 68-point landmarks (for face alignment)
         // 3. FaceRecognitionNet — 128-dim FaceNet descriptor (for identity matching)
         await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL),
         ]);
 
         modelsLoaded = true;
-        log.ai.success('face-api.js models loaded (TinyFaceDetector + Landmarks + FaceRecognition)');
+        log.ai.success('face-api.js models loaded (SSD MobileNet v1 + Landmarks + FaceRecognition)');
         return { success: true, message: 'face-api.js ready' };
     } catch (error: any) {
         log.ai.error('face-api.js model loading failed', error.message);
@@ -51,7 +54,7 @@ async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDet
     }
 
     try {
-        log.ai.info('Detecting face with face-api.js...');
+        log.ai.info('Detecting face with SSD MobileNet v1...');
 
         let image: HTMLImageElement;
 
@@ -61,11 +64,11 @@ async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDet
             image = imageSource;
         }
 
-        // Detect face + landmarks + descriptor
+        // Use SSD MobileNet v1 — much more accurate than TinyFaceDetector
+        // minConfidence 0.4 catches more faces (TinyFaceDetector was missing many)
         const detection = await faceapi
-            .detectSingleFace(image, new faceapi.TinyFaceDetectorOptions({
-                inputSize: 416,
-                scoreThreshold: 0.5,
+            .detectSingleFace(image, new faceapi.SsdMobilenetv1Options({
+                minConfidence: 0.4,
             }))
             .withFaceLandmarks()
             .withFaceDescriptor();
@@ -79,7 +82,7 @@ async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDet
         const embedding = Array.from(detection.descriptor);
         const box = detection.detection.box;
 
-        log.ai.success(`Face detected! Descriptor: 128-dim FaceNet embedding, score: ${detection.detection.score.toFixed(2)}`);
+        log.ai.success(`Face detected! 128-dim FaceNet embedding, score: ${detection.detection.score.toFixed(2)}`);
 
         return {
             hasFace: true,
@@ -95,6 +98,47 @@ async function detectFace(imageSource: Blob | HTMLImageElement): Promise<FaceDet
     } catch (error: any) {
         log.ai.error('Face detection failed', error.message);
         return { hasFace: false };
+    }
+}
+
+/**
+ * Detect ALL faces in an image and return the best match against a reference.
+ * This handles group photos where the user's face might not be the most prominent.
+ */
+async function detectAllFaces(imageSource: Blob | HTMLImageElement): Promise<FaceDetectionResult[]> {
+    if (!modelsLoaded) {
+        throw new Error('Models not loaded. Call initialize() first.');
+    }
+
+    try {
+        let image: HTMLImageElement;
+        if (imageSource instanceof Blob) {
+            image = await blobToImage(imageSource);
+        } else {
+            image = imageSource;
+        }
+
+        const detections = await faceapi
+            .detectAllFaces(image, new faceapi.SsdMobilenetv1Options({
+                minConfidence: 0.4,
+            }))
+            .withFaceLandmarks()
+            .withFaceDescriptors();
+
+        return detections.map((d) => ({
+            hasFace: true,
+            embedding: Array.from(d.descriptor),
+            confidence: d.detection.score,
+            boundingBox: {
+                x: d.detection.box.x,
+                y: d.detection.box.y,
+                width: d.detection.box.width,
+                height: d.detection.box.height,
+            },
+        }));
+    } catch (error: any) {
+        log.ai.error('Multi-face detection failed', error.message);
+        return [];
     }
 }
 
@@ -137,5 +181,6 @@ function blobToImage(blob: Blob): Promise<HTMLImageElement> {
 export const faceScanner = {
     initialize,
     detectFace,
+    detectAllFaces,
     compareFaces,
 };

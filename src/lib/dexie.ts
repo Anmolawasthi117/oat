@@ -39,9 +39,11 @@ export const dbHelpers = {
 
     /**
      * Get all matched photos
+     * NOTE: IndexedDB can't reliably index booleans, so we filter in JS
      */
     async getMatchedPhotos(): Promise<PhotoMetadata[]> {
-        return await db.photos.where('isMatch').equals(true).toArray();
+        const all = await db.photos.toArray();
+        return all.filter(p => p.isMatch === true);
     },
 
     /**
@@ -67,12 +69,14 @@ export const dbHelpers = {
 
     /**
      * Get processing statistics
+     * NOTE: IndexedDB can't reliably index booleans, so we filter in JS
      */
     async getStats() {
-        const total = await db.photos.count();
-        const processed = await db.photos.where('processed').equals(true).count();
-        const matched = await db.photos.where('isMatch').equals(true).count();
-        const hasFace = await db.photos.where('hasFace').equals(true).count();
+        const all = await db.photos.toArray();
+        const total = all.length;
+        const processed = all.filter(p => p.processed === true).length;
+        const matched = all.filter(p => p.isMatch === true).length;
+        const hasFace = all.filter(p => p.hasFace === true).length;
 
         return { total, processed, matched, hasFace };
     },

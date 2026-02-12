@@ -115,7 +115,8 @@ class ProcessingPipeline {
     }
 
     /**
-     * Process a single photo
+     * Process a single photo — detects ALL faces and finds best match
+     * This handles group photos where the user may not be the most prominent face.
      */
     private async processPhoto(
         photo: PhotoMetadata,
@@ -126,27 +127,42 @@ class ProcessingPipeline {
         // Read file from OPFS
         const blob = await opfsManager.readFile(photo.id);
 
-        // Detect face
-        const result = await faceScanner.detectFace(blob);
+        // Detect ALL faces in the image (not just one)
+        const faces = await faceScanner.detectAllFaces(blob);
 
         const updates: Partial<PhotoMetadata> = {
-            hasFace: result.hasFace,
+            hasFace: faces.length > 0,
             processed: true,
         };
 
-        if (result.hasFace && result.embedding) {
-            // Compare with reference face
-            const comparison = faceScanner.compareFaces(
-                referenceEmbedding,
-                result.embedding
-            );
+        if (faces.length > 0) {
+            log.ai.info(`Found ${faces.length} face(s) in ${photo.filename}`);
 
-            updates.isMatch = comparison.isMatch;
-            updates.faceConfidence = comparison.confidence;
+            // Compare each detected face with the reference and take the best match
+            let bestMatch: { isMatch: boolean; distance: number; confidence: number } | null = null;
 
-            if (comparison.isMatch) {
-                useProcessingStore.getState().incrementMatched();
-                log.ai.success(`Match found: ${photo.filename} (${(comparison.confidence * 100).toFixed(0)}%)`);
+            for (const face of faces) {
+                if (!face.embedding) continue;
+
+                const comparison = faceScanner.compareFaces(
+                    referenceEmbedding,
+                    face.embedding
+                );
+
+                // Keep the closest match (lowest distance)
+                if (!bestMatch || comparison.distance < bestMatch.distance) {
+                    bestMatch = comparison;
+                }
+            }
+
+            if (bestMatch) {
+                updates.isMatch = bestMatch.isMatch;
+                updates.faceConfidence = bestMatch.confidence;
+
+                if (bestMatch.isMatch) {
+                    useProcessingStore.getState().incrementMatched();
+                    log.ai.success(`Match found: ${photo.filename} (${(bestMatch.confidence * 100).toFixed(0)}%, dist: ${bestMatch.distance.toFixed(3)})`);
+                }
             }
         }
 
