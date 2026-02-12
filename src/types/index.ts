@@ -20,7 +20,7 @@ export interface PhotoMetadata {
 }
 
 export interface FaceEmbedding {
-    embedding: number[];     // 128-dimensional vector from MediaPipe
+    embedding: number[];     // 512-dimensional vector from MobileFaceNet
     timestamp: number;       // When it was created
 }
 
@@ -100,6 +100,7 @@ export interface FaceDetectionResult {
 export interface FaceComparisonResult {
     isMatch: boolean;
     distance: number;
+    similarity: number;     // cosine similarity (0-1, higher = more similar)
     confidence: number;
 }
 

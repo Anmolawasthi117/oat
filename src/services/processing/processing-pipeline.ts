@@ -53,10 +53,10 @@ class ProcessingPipeline {
         const referenceEmbedding = refData.embedding;
         log.ai.info(`Reference embedding: ${referenceEmbedding.length} dimensions`);
 
-        // Validate it's a 128-dim FaceNet descriptor (not old MediaPipe landmarks)
-        if (referenceEmbedding.length !== 128) {
-            store.setError(`Stale calibration data (${referenceEmbedding.length} dims, need 128). Please re-calibrate.`);
-            log.ai.error(`Reference embedding has wrong dimensions: ${referenceEmbedding.length} (expected 128). User needs to re-calibrate.`);
+        // Validate it's a 512-dim MobileFaceNet embedding (not old 128-dim FaceNet)
+        if (referenceEmbedding.length !== 512) {
+            store.setError(`Stale calibration data (${referenceEmbedding.length} dims, need 512). Please re-calibrate.`);
+            log.ai.error(`Reference embedding has wrong dimensions: ${referenceEmbedding.length} (expected 512). User needs to re-calibrate.`);
             return;
         }
 
