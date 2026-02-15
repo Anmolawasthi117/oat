@@ -1,5 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { signOut } from 'firebase/auth';
+import { auth } from '../../lib/firebase';
 import { useAuthStore } from '../../store/auth';
 import { APP } from '../../config/constants';
 import { cleanupSession } from '../../utils/cleanup';
@@ -20,6 +22,14 @@ export function Header() {
     const location = useLocation();
     const navigate = useNavigate();
     const { user, authMode } = useAuthStore();
+
+    const handleSignOut = async () => {
+        if (window.confirm('Sign out and clear session data?')) {
+            await cleanupSession();
+            await signOut(auth);
+            navigate('/');
+        }
+    };
 
     const currentStepIdx = STEPS.findIndex((s) => s.path === location.pathname);
 
@@ -193,16 +203,36 @@ export function Header() {
                             {user?.displayName?.[0]?.toUpperCase() || '👤'}
                         </div>
                     )}
-                    <span
-                        style={{
-                            fontSize: '0.75rem',
-                            color: 'var(--color-warm-grey)',
-                            fontFamily: 'var(--font-body)',
-                        }}
-                        className="hidden md:inline"
-                    >
-                        {authMode === 'guest' ? 'Guest' : user?.displayName?.split(' ')[0] || 'User'}
-                    </span>
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                        <span
+                            style={{
+                                fontSize: '0.75rem',
+                                color: 'var(--color-espresso)',
+                                fontFamily: 'var(--font-body)',
+                                fontWeight: 500,
+                            }}
+                            className="hidden md:inline"
+                        >
+                            {authMode === 'guest' ? 'Guest' : user?.displayName?.split(' ')[0] || 'User'}
+                        </span>
+                        {authMode === 'authenticated' && (
+                            <button
+                                onClick={handleSignOut}
+                                style={{
+                                    background: 'none',
+                                    border: 'none',
+                                    padding: 0,
+                                    fontSize: '0.65rem',
+                                    color: 'var(--color-warm-grey)',
+                                    cursor: 'pointer',
+                                    textDecoration: 'underline',
+                                    opacity: 0.8,
+                                }}
+                            >
+                                Sign Out
+                            </button>
+                        )}
+                    </div>
                 </div>
             </div>
         </header>

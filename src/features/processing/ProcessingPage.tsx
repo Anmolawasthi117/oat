@@ -83,9 +83,24 @@ export function ProcessingPage() {
               cy="100"
               r={radius}
               fill="none"
-              stroke="var(--color-paper)"
-              strokeWidth="10"
+              stroke="rgba(224, 201, 166, 0.3)"
+              strokeWidth="8"
             />
+            
+            {/* Pulsing glow behind */}
+            {status === 'processing' && (
+              <motion.circle
+                cx="100"
+                cy="100"
+                r={radius}
+                fill="none"
+                stroke="var(--color-matcha)"
+                strokeWidth="2"
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1.2, opacity: 0 }}
+                transition={{ duration: 2, repeat: Infinity, ease: "easeOut" }}
+              />
+            )}
             {/* Progress circle */}
             <motion.circle
               cx="100"

@@ -185,17 +185,33 @@ export function ResultsPage() {
   if (isLoading) {
     return (
       <div
-        className="flex-1 flex items-center justify-center"
+        className="flex-1 p-6"
         style={{ backgroundColor: 'var(--color-oat-cream)' }}
       >
-        <motion.div
-          className="text-center"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-        >
-          <div className="text-4xl mb-4 animate-breathe">📷</div>
-          <p style={{ color: 'var(--color-warm-grey)' }}>Loading your photos...</p>
-        </motion.div>
+        <div className="max-w-5xl mx-auto">
+          {/* Skeleton Header */}
+          <div className="flex flex-col items-center mb-12 mt-4 gap-4">
+            <div className="skeleton h-12 w-64 rounded-xl" style={{ opacity: 0.6 }} />
+            <div className="skeleton h-5 w-48 rounded-md" style={{ opacity: 0.4 }} />
+          </div>
+
+          {/* Skeleton Controls */}
+          <div className="skeleton h-24 w-full rounded-[1.75rem] mb-8" style={{ opacity: 0.4 }} />
+
+          {/* Skeleton Grid */}
+          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+            {Array.from({ length: 24 }).map((_, i) => (
+              <div
+                key={i}
+                className="skeleton aspect-square rounded-[1.25rem]"
+                style={{
+                  opacity: Math.max(0.2, 1 - i * 0.02),
+                  animationDelay: `${i * 0.05}s`
+                }}
+              />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }
