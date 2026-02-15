@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AnimatePresence } from 'framer-motion';
+import { Toaster } from 'sonner';
 import { Layout } from './components/layout/Layout';
 import { AuthProvider } from './features/auth/AuthProvider';
 import { LandingPage } from './features/auth/LandingPage';
@@ -40,6 +41,7 @@ function App() {
   return (
     <BrowserRouter>
       <InnerApp />
+      <Toaster position="top-center" expand={false} richColors closeButton />
     </BrowserRouter>
   );
 }

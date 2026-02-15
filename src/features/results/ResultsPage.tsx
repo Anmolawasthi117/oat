@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { Button } from '../../components/ui';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { springs } from '../../config/theme';
@@ -29,7 +30,7 @@ export function ResultsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [threshold, setThreshold] = useState(0);
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-  const [showStatsToast, setShowStatsToast] = useState(false);
+
   const [driveUploading, setDriveUploading] = useState<string | null>(null);
   const authMode = useAuthStore((s) => s.authMode);
 
@@ -64,11 +65,7 @@ export function ResultsPage() {
       setIsLoading(false);
       log.ui.success(`Loaded ${allPhotos.length} photos, ${matchPhotos.length} matches`);
 
-      // Show stats toast
-      if (matchPhotos.length > 0) {
-        setShowStatsToast(true);
-        setTimeout(() => setShowStatsToast(false), 4500);
-      }
+      log.ui.success(`Loaded ${allPhotos.length} photos, ${matchPhotos.length} matches`);
 
       // Load remaining thumbnails in background batches of 24
       const remaining = ordered.slice(INITIAL_BATCH);
@@ -101,25 +98,27 @@ export function ResultsPage() {
     let filtered = photos;
 
     if (showMatchesOnly) {
-      filtered = filtered.filter(
-        (p) => p.isMatch && (threshold === 0 || (p.faceConfidence ?? 0) >= threshold)
-      );
+      filtered = filtered.filter((p) => {
+        if (threshold > 0) {
+          return (p.faceConfidence ?? 0) >= threshold;
+        }
+        return p.isMatch;
+      });
     }
 
     return filtered;
   }, [photos, showMatchesOnly, threshold]);
 
-  // Total matches (from pipeline, no threshold applied)
-  const allMatchedPhotos = useMemo(
-    () => photos.filter((p) => p.isMatch),
-    [photos]
-  );
+  // Total matches based on current threshold (or static if threshold is 0)
+  const allMatchedPhotos = useMemo(() => {
+    return photos.filter((p) => {
+      if (threshold > 0) return (p.faceConfidence ?? 0) >= threshold;
+      return p.isMatch;
+    });
+  }, [photos, threshold]);
 
-  // Matches visible with current slider threshold
-  const visibleMatchedPhotos = useMemo(
-    () => photos.filter((p) => p.isMatch && (threshold === 0 || (p.faceConfidence ?? 0) >= threshold)),
-    [photos, threshold]
-  );
+  // Visible matches (same as allMatchedPhotos since we filter by the same logic in "Matches" tab)
+  const visibleMatchedPhotos = allMatchedPhotos;
 
   const stats = useMemo(() => ({
     total: photos.length,
@@ -147,8 +146,10 @@ export function ResultsPage() {
     setIsExporting(true);
     try {
       await exportAsZip(Array.from(selectedIds));
+      toast.success(`Exported ${selectedIds.size} photos!`);
     } catch (err: any) {
       log.storage.error('Export failed', err.message);
+      toast.error('Export failed: ' + err.message);
     } finally {
       setIsExporting(false);
     }
@@ -176,9 +177,11 @@ export function ResultsPage() {
       }
       setDriveUploading(null);
       log.storage.success(`Uploaded ${ids.length} photos to GDrive`);
+      toast.success(`Saved ${ids.length} photos to Google Drive!`);
     } catch (err: any) {
       log.storage.error('Save to Drive failed', err.message);
       setDriveUploading(null);
+      toast.error('Save to Drive failed: ' + err.message);
     }
   };
 
@@ -199,7 +202,7 @@ export function ResultsPage() {
           <div className="skeleton h-24 w-full rounded-[1.75rem] mb-8" style={{ opacity: 0.4 }} />
 
           {/* Skeleton Grid */}
-          <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
             {Array.from({ length: 24 }).map((_, i) => (
               <div
                 key={i}
@@ -246,40 +249,7 @@ export function ResultsPage() {
           </p>
         </motion.div>
 
-        {/* Stats Toast */}
-        <AnimatePresence>
-          {showStatsToast && (
-            <motion.div
-              initial={{ opacity: 0, y: -20, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -20, scale: 0.95 }}
-              transition={springs.bouncy}
-              style={{
-                position: 'fixed',
-                top: '5rem',
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 60,
-                background: 'var(--color-paper)',
-                borderRadius: 'var(--radius-pebble)',
-                padding: '0.75rem 1.5rem',
-                boxShadow: 'var(--shadow-hover)',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '0.75rem',
-                fontFamily: 'var(--font-body)',
-                fontSize: '0.9rem',
-                color: 'var(--color-espresso)',
-              }}
-            >
-              <span style={{ fontSize: '1.3rem' }}>📸</span>
-              <span>
-                Found you in <strong style={{ color: '#6B9E6B' }}>{stats.matched}</strong> of {stats.total} photos!
-              </span>
-              <span style={{ fontSize: '1.3rem' }}>🎉</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
+
 
         {/* Controls bar */}
         <motion.div
@@ -381,7 +351,7 @@ export function ResultsPage() {
 
         {/* Photo Grid */}
         <motion.div
-          className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-8"
+          className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-8"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
@@ -392,6 +362,7 @@ export function ResultsPage() {
               photo={photo}
               thumbnail={thumbnails[photo.id]}
               isSelected={selectedIds.has(photo.id)}
+              isMatch={threshold > 0 ? (photo.faceConfidence ?? 0) >= threshold : photo.isMatch}
               onToggle={() => toggleSelect(photo.id)}
               onView={() => setLightboxIndex(i)}
               index={i}
@@ -465,6 +436,7 @@ function PhotoCard({
   photo,
   thumbnail,
   isSelected,
+  isMatch,
   onToggle,
   onView,
   index,
@@ -472,6 +444,7 @@ function PhotoCard({
   photo: PhotoMetadata;
   thumbnail?: string;
   isSelected: boolean;
+  isMatch: boolean;
   onToggle: () => void;
   onView: () => void;
   index: number;
@@ -483,10 +456,10 @@ function PhotoCard({
         borderRadius: 'var(--radius-soft)',
         border: isSelected
           ? '3px solid #6B9E6B'
-          : photo.isMatch
+          : isMatch
             ? '3px solid var(--color-matcha)'
             : '3px solid transparent',
-        boxShadow: photo.isMatch ? '0 4px 14px rgba(195, 217, 195, 0.4)' : undefined,
+        boxShadow: isMatch ? '0 4px 14px rgba(195, 217, 195, 0.4)' : undefined,
       }}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -513,7 +486,7 @@ function PhotoCard({
       )}
 
       {/* Match badge */}
-      {photo.isMatch && (
+      {isMatch && (
         <div
           className="absolute top-1.5 left-1.5 w-6 h-6 flex items-center justify-center text-xs"
           style={{
@@ -566,7 +539,7 @@ function PhotoCard({
       {/* Confidence label on hover */}
       {photo.faceConfidence && (
         <div
-          className="absolute bottom-1 right-1 text-[10px] px-1.5 py-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute bottom-1 right-1 text-[10px] px-1.5 py-0.5"
           style={{
             borderRadius: '999px',
             backgroundColor: 'rgba(0,0,0,0.6)',

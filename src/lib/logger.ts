@@ -1,9 +1,4 @@
-/**
- * Centralized Logger for OAT
- * 
- * Every user flow step gets a log so we can trace exactly
- * what's happening in the console. Color-coded by category.
- */
+
 
 type LogCategory = 'AUTH' | 'AI' | 'STORAGE' | 'UI' | 'DRIVE' | 'WORKER';
 

@@ -49,12 +49,11 @@ export function Header() {
                 style={{
                     maxWidth: '1200px',
                     margin: '0 auto',
-                    padding: '0.75rem 1.5rem',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    gap: '1rem',
                 }}
+                className="px-4 sm:px-6 py-3 gap-2 sm:gap-4"
             >
                 {/* Logo */}
                 <motion.button
@@ -75,13 +74,19 @@ export function Header() {
                         flexShrink: 0,
                     }}
                 >
-                    <span style={{ fontSize: '1.5rem' }}>🥣</span>
+                    <img
+                        src="/logo.png"
+                        alt="OAT Logo"
+                        className="h-8 w-auto sm:h-10"
+                        style={{ objectFit: 'contain' }}
+                    />
                     <span
+                        className="text-xl sm:text-2xl"
                         style={{
                             fontFamily: 'var(--font-heading)',
-                            fontSize: '1.5rem',
                             color: 'var(--color-espresso)',
-                            letterSpacing: '-0.02em',
+                            letterSpacing: '-0.03em',
+                            lineHeight: 1,
                         }}
                     >
                         {APP.NAME}
@@ -144,15 +149,14 @@ export function Header() {
                                     {/* Connector line */}
                                     {i < STEPS.length - 1 && (
                                         <div
+                                            className="w-2 sm:w-6 mx-0.5 sm:mx-1"
                                             style={{
-                                                width: '1.5rem',
                                                 height: '2px',
                                                 background: isCompleted
                                                     ? 'var(--color-sage)'
                                                     : 'var(--color-clay)',
                                                 opacity: isCompleted ? 0.8 : 0.3,
                                                 borderRadius: '1px',
-                                                margin: '0 0.15rem',
                                             }}
                                         />
                                     )}
