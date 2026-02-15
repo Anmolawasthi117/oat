@@ -69,7 +69,7 @@ export function IngestionPage() {
       if (!mime) continue; // skip non-image files
 
       const filename = path.split('/').pop() || path;
-      const file = new File([data], filename, { type: mime });
+      const file = new File([data as any], filename, { type: mime });
       if (file.size <= FILE_PROCESSING.MAX_FILE_SIZE) {
         imageFiles.push(file);
       }

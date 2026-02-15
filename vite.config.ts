@@ -40,6 +40,7 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,ico,png,svg,json,onnx,weights,wasm}'],
+        maximumFileSizeToCacheInBytes: 50 * 1024 * 1024, // 50MB
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/cdn\.jsdelivr\.net\/.*/i,

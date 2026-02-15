@@ -5,7 +5,7 @@
  * Uses JSZip when available, falls back to individual downloads.
  */
 
-import { zipSync, strToU8 } from 'fflate';
+import { zipSync } from 'fflate';
 import { opfsManager } from '../opfs/opfs-manager';
 import { db } from '../../lib/dexie';
 import { log } from '../../lib/logger';
@@ -37,7 +37,7 @@ export async function exportAsZip(fileIds: string[]): Promise<void> {
         // Generate ZIP
         log.storage.info('Generating ZIP file...');
         const zipped = zipSync(zipData);
-        const zipBlob = new Blob([zipped], { type: 'application/zip' });
+        const zipBlob = new Blob([zipped as any], { type: 'application/zip' });
 
         // Download
         const url = URL.createObjectURL(zipBlob);

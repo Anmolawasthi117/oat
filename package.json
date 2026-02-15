@@ -19,7 +19,7 @@
     "face-api.js": "^0.22.2",
     "fflate": "^0.8.2",
     "firebase": "^12.9.0",
-    "framer-motion": "^12.4.2",
+    "framer-motion": "^11.18.2",
     "onnxruntime-web": "^1.24.1",
     "p-queue": "^9.1.0",
     "react": "^19.2.0",
