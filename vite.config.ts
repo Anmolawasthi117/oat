@@ -59,6 +59,10 @@ export default defineConfig({
       }
     })
   ],
+  build: {
+    minify: false,
+    sourcemap: true,
+  },
   server: {
     headers: {
       // Fix Firebase popup auth COOP warnings

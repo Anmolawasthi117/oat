@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import JSZip from 'jszip';
+import { unzipSync } from 'fflate';
 import { Button } from '../../components/ui';
 import { springs } from '../../config/theme';
 import { FILE_PROCESSING } from '../../config/constants';
@@ -50,21 +50,17 @@ export function IngestionPage() {
     setZipExtracting(`Opening ${zipFile.name}...`);
     log.ui.info('Extracting ZIP', { name: zipFile.name, size: zipFile.size });
 
-    const zip = await JSZip.loadAsync(zipFile);
-    const entries = Object.values(zip.files).filter(
-      (entry) => !entry.dir && !isJunkPath(entry.name)
-    );
-
+    const arrayBuffer = await zipFile.arrayBuffer();
+    const unzipped = unzipSync(new Uint8Array(arrayBuffer));
+    
     const imageFiles: File[] = [];
-    let processed = 0;
+    const entries = Object.entries(unzipped);
 
-    for (const entry of entries) {
-      processed++;
-      setZipExtracting(`Extracting ${processed}/${entries.length} from ${zipFile.name}...`);
+    for (const [path, data] of entries) {
+      if (isJunkPath(path)) continue;
 
-      const blob = await entry.async('blob');
       // Infer MIME from extension
-      const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+      const ext = path.split('.').pop()?.toLowerCase() || '';
       const mimeMap: Record<string, string> = {
         jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
         webp: 'image/webp', heic: 'image/heic',
@@ -72,8 +68,8 @@ export function IngestionPage() {
       const mime = mimeMap[ext];
       if (!mime) continue; // skip non-image files
 
-      const filename = entry.name.split('/').pop() || entry.name;
-      const file = new File([blob], filename, { type: mime });
+      const filename = path.split('/').pop() || path;
+      const file = new File([data], filename, { type: mime });
       if (file.size <= FILE_PROCESSING.MAX_FILE_SIZE) {
         imageFiles.push(file);
       }

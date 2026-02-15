@@ -35,7 +35,6 @@ export function CalibrationPage() {
   const [compliment] = useState(() => COMPLIMENTS[Math.floor(Math.random() * COMPLIMENTS.length)]);
   const [savedFaces, setSavedFaces] = useState<SavedFace[]>([]);
   const [isLoadingFaces, setIsLoadingFaces] = useState(true);
-  const [lastBlob, setLastBlob] = useState<Blob | null>(null);
   const { setReferenceFaceEmbedding, setLoading, setError } = useAuthStore();
   const navigate = useNavigate();
 
@@ -99,7 +98,6 @@ export function CalibrationPage() {
   const processFace = async (blob: Blob) => {
     setStep('processing');
     setLoading(true);
-    setLastBlob(blob);
     log.ai.info('Starting face detection on captured image...');
 
     try {

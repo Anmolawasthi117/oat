@@ -5,6 +5,7 @@
  * Uses JSZip when available, falls back to individual downloads.
  */
 
+import { zipSync, strToU8 } from 'fflate';
 import { opfsManager } from '../opfs/opfs-manager';
 import { db } from '../../lib/dexie';
 import { log } from '../../lib/logger';
@@ -16,9 +17,7 @@ export async function exportAsZip(fileIds: string[]): Promise<void> {
     log.storage.info(`Exporting ${fileIds.length} photos...`);
 
     try {
-        // Dynamic import JSZip
-        const JSZip = (await import('jszip')).default;
-        const zip = new JSZip();
+        const zipData: Record<string, Uint8Array> = {};
 
         for (let i = 0; i < fileIds.length; i++) {
             const id = fileIds[i];
@@ -29,14 +28,16 @@ export async function exportAsZip(fileIds: string[]): Promise<void> {
 
             // Read file from OPFS
             const blob = await opfsManager.readFile(id);
-            zip.file(filename, blob);
+            const arrayBuffer = await blob.arrayBuffer();
+            zipData[filename] = new Uint8Array(arrayBuffer);
 
             log.storage.info(`Added to zip: ${filename} (${i + 1}/${fileIds.length})`);
         }
 
         // Generate ZIP
         log.storage.info('Generating ZIP file...');
-        const zipBlob = await zip.generateAsync({ type: 'blob' });
+        const zipped = zipSync(zipData);
+        const zipBlob = new Blob([zipped], { type: 'application/zip' });
 
         // Download
         const url = URL.createObjectURL(zipBlob);

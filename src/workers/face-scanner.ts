@@ -94,7 +94,8 @@ function compareFaces(embedding1: number[], embedding2: number[]): FaceCompariso
 
     console.log(`⚙️ [WORKER] Face comparison: distance=${distance.toFixed(3)}, match=${isMatch}`);
 
-    return { isMatch, distance, confidence };
+    const similarity = confidence; // For MediaPipe/Euclidean, we'll map confidence to similarity
+    return { isMatch, distance, similarity, confidence };
 }
 
 // --- Helper Functions ---

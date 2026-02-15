@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { Button } from '../../components/ui';
 import { Lightbox } from '../../components/ui/Lightbox';
 import { springs } from '../../config/theme';
-import { db, dbHelpers } from '../../lib/dexie';
+import { db } from '../../lib/dexie';
 import { opfsManager } from '../../services/opfs/opfs-manager';
 import { gdriveService } from '../../services/gdrive/gdrive-service';
 import { useAuthStore } from '../../store/auth';
