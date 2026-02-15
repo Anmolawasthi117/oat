@@ -1,10 +1,13 @@
 import { useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import JSZip from 'jszip';
 import { Button } from '../../components/ui';
 import { springs } from '../../config/theme';
 import { FILE_PROCESSING } from '../../config/constants';
 import { opfsManager } from '../../services/opfs/opfs-manager';
+import { gdriveService } from '../../services/gdrive/gdrive-service';
+import { useAuthStore } from '../../store/auth';
 import { dbHelpers } from '../../lib/dexie';
 import { log } from '../../lib/logger';
 import type { PhotoMetadata } from '../../types';
@@ -27,17 +30,77 @@ export function IngestionPage() {
   const [isDragging, setIsDragging] = useState(false);
   const [isStoring, setIsStoring] = useState(false);
   const [storeProgress, setStoreProgress] = useState(0);
+  const [zipExtracting, setZipExtracting] = useState<string | null>(null);
+  const [driveImporting, setDriveImporting] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+  const authMode = useAuthStore((s) => s.authMode);
 
   const isValidFile = (file: File) => {
     return FILE_PROCESSING.SUPPORTED_IMAGE_TYPES.includes(file.type as any) &&
       file.size <= FILE_PROCESSING.MAX_FILE_SIZE;
   };
 
-  const addFiles = useCallback((newFiles: FileList | File[]) => {
-    const validFiles = Array.from(newFiles).filter(isValidFile);
-    const rejected = Array.from(newFiles).length - validFiles.length;
+  // Junk files to ignore from ZIPs
+  const JUNK_PATTERNS = ['__MACOSX/', '.DS_Store', 'Thumbs.db', '._.'];
+  const isJunkPath = (path: string) => JUNK_PATTERNS.some((p) => path.includes(p));
+
+  // Extract images from a ZIP file
+  const extractZip = async (zipFile: File): Promise<File[]> => {
+    setZipExtracting(`Opening ${zipFile.name}...`);
+    log.ui.info('Extracting ZIP', { name: zipFile.name, size: zipFile.size });
+
+    const zip = await JSZip.loadAsync(zipFile);
+    const entries = Object.values(zip.files).filter(
+      (entry) => !entry.dir && !isJunkPath(entry.name)
+    );
+
+    const imageFiles: File[] = [];
+    let processed = 0;
+
+    for (const entry of entries) {
+      processed++;
+      setZipExtracting(`Extracting ${processed}/${entries.length} from ${zipFile.name}...`);
+
+      const blob = await entry.async('blob');
+      // Infer MIME from extension
+      const ext = entry.name.split('.').pop()?.toLowerCase() || '';
+      const mimeMap: Record<string, string> = {
+        jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png',
+        webp: 'image/webp', heic: 'image/heic',
+      };
+      const mime = mimeMap[ext];
+      if (!mime) continue; // skip non-image files
+
+      const filename = entry.name.split('/').pop() || entry.name;
+      const file = new File([blob], filename, { type: mime });
+      if (file.size <= FILE_PROCESSING.MAX_FILE_SIZE) {
+        imageFiles.push(file);
+      }
+    }
+
+    setZipExtracting(null);
+    log.ui.success(`Extracted ${imageFiles.length} images from ${zipFile.name}`);
+    return imageFiles;
+  };
+
+  const addFiles = useCallback(async (newFiles: FileList | File[]) => {
+    const arr = Array.from(newFiles);
+
+    // Separate ZIPs from images
+    const zipFiles = arr.filter((f) => f.type === 'application/zip' || f.name.endsWith('.zip'));
+    const imageFiles = arr.filter((f) => f.type !== 'application/zip' && !f.name.endsWith('.zip'));
+
+    // Extract ZIPs
+    let extractedImages: File[] = [];
+    for (const zip of zipFiles) {
+      const imgs = await extractZip(zip);
+      extractedImages = extractedImages.concat(imgs);
+    }
+
+    const allImages = [...imageFiles, ...extractedImages];
+    const validFiles = allImages.filter(isValidFile);
+    const rejected = allImages.length - validFiles.length;
 
     if (rejected > 0) {
       log.ui.warn(`${rejected} files rejected (unsupported type or too large)`);
@@ -148,7 +211,7 @@ export function IngestionPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
+      className="flex-1 flex flex-col items-center justify-center p-6"
       style={{ backgroundColor: 'var(--color-oat-cream)' }}
     >
       <div className="max-w-2xl w-full">
@@ -173,7 +236,100 @@ export function IngestionPage() {
           <p style={{ color: 'var(--color-warm-grey)' }}>
             We'll scan them for your face. Nothing leaves your device.
           </p>
+
+          {/* Back link */}
+          <motion.button
+            onClick={() => navigate('/calibration')}
+            whileHover={{ x: -3 }}
+            style={{
+              marginTop: '0.5rem',
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              fontSize: '0.8rem',
+              color: 'var(--color-warm-grey)',
+              fontFamily: 'var(--font-body)',
+              opacity: 0.7,
+            }}
+          >
+            ← Re-calibrate face
+          </motion.button>
         </motion.div>
+
+        {/* Google Drive Import (authenticated users only) */}
+        {authMode === 'authenticated' && (
+          <motion.div
+            className="mb-4"
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.1 }}
+          >
+            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}>
+              <Button
+                variant="secondary"
+                size="md"
+                className="w-full"
+                disabled={!!driveImporting}
+                onClick={async () => {
+                  try {
+                    setDriveImporting('Connecting to Google Drive...');
+                    const folder = await gdriveService.pickFolder();
+                    if (!folder) {
+                      setDriveImporting(null);
+                      return;
+                    }
+                    log.ui.info('GDrive folder selected', folder);
+                    setDriveImporting(`Listing images in ${folder.name}...`);
+                    const images = await gdriveService.listImages(folder.id);
+                    if (images.length === 0) {
+                      setDriveImporting(null);
+                      log.ui.warn('No images found in folder');
+                      return;
+                    }
+
+                    const driveFiles: File[] = [];
+                    for (let i = 0; i < images.length; i++) {
+                      setDriveImporting(`Importing ${i + 1}/${images.length} from ${folder.name}...`);
+                      try {
+                        const blob = await gdriveService.downloadImage(images[i].id);
+                        driveFiles.push(new File([blob], images[i].name, { type: images[i].mimeType }));
+                      } catch (err) {
+                        log.storage.warn(`Failed to download ${images[i].name}`);
+                      }
+                    }
+
+                    setDriveImporting(null);
+                    if (driveFiles.length > 0) addFiles(driveFiles);
+                  } catch (err: any) {
+                    log.storage.error('GDrive import failed', err.message);
+                    setDriveImporting(null);
+                  }
+                }}
+              >
+                <span className="flex items-center justify-center gap-2">
+                  <span>📁</span>
+                  <span>{driveImporting || 'Import from Google Drive'}</span>
+                </span>
+              </Button>
+            </motion.div>
+
+            {driveImporting && (
+              <motion.div
+                className="mt-2 w-full h-1.5 overflow-hidden"
+                style={{ borderRadius: '999px', backgroundColor: 'var(--color-paper)' }}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <motion.div
+                  className="h-full"
+                  style={{ backgroundColor: 'var(--color-matcha)', borderRadius: '999px', width: '30%' }}
+                  animate={{ x: ['-100%', '400%'] }}
+                  transition={{ duration: 1.5, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              </motion.div>
+            )}
+          </motion.div>
+        )}
 
         {/* Drop Zone */}
         <motion.div
@@ -213,14 +369,29 @@ export function IngestionPage() {
               {isDragging ? 'Drop them here!' : 'Drag photos here'}
             </p>
             <p className="text-sm" style={{ color: 'var(--color-warm-grey)' }}>
-              or click to browse • JPEG, PNG, WebP, HEIC
+              or click to browse • JPEG, PNG, WebP, HEIC, ZIP
             </p>
+
+            {/* ZIP extraction toast */}
+            <AnimatePresence>
+              {zipExtracting && (
+                <motion.p
+                  className="mt-3 text-sm font-medium"
+                  style={{ color: 'var(--color-espresso)' }}
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                >
+                  📦 {zipExtracting}
+                </motion.p>
+              )}
+            </AnimatePresence>
           </motion.div>
 
           <input
             ref={inputRef}
             type="file"
-            accept="image/jpeg,image/png,image/webp,image/heic"
+            accept="image/jpeg,image/png,image/webp,image/heic,application/zip,.zip"
             multiple
             className="hidden"
             onChange={handleFileSelect}

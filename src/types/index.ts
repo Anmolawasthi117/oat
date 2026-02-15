@@ -24,6 +24,14 @@ export interface FaceEmbedding {
     timestamp: number;       // When it was created
 }
 
+export interface SavedFace {
+    id: string;              // Unique ID
+    label: string;           // Display name: "Me", "Mom", custom
+    embedding: number[];     // 512-dim MobileFaceNet embedding
+    thumbnail: string;       // base64 data URL of cropped face
+    createdAt: number;       // Unix timestamp
+}
+
 // ==================== User & Auth Types ====================
 
 export interface User {

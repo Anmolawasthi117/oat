@@ -12,12 +12,14 @@ interface AuthState {
     user: User | null;
     authMode: AuthMode;
     referenceFaceEmbedding: FaceEmbedding | null;
+    googleAccessToken: string | null;
     isLoading: boolean;
     error: string | null;
 
     // Actions
     setUser: (user: User | null) => void;
     setAuthMode: (mode: AuthMode) => void;
+    setGoogleAccessToken: (token: string | null) => void;
     setReferenceEmbedding: (embedding: number[]) => void;
     setReferenceFaceEmbedding: (data: { embedding: number[]; capturedAt: number }) => void;
     clearReferenceEmbedding: () => void;
@@ -30,12 +32,15 @@ export const useAuthStore = create<AuthState>((set) => ({
     user: null,
     authMode: 'guest',
     referenceFaceEmbedding: null,
+    googleAccessToken: null,
     isLoading: false,
     error: null,
 
     setUser: (user) => set({ user }),
 
     setAuthMode: (mode) => set({ authMode: mode }),
+
+    setGoogleAccessToken: (token) => set({ googleAccessToken: token }),
 
     setReferenceEmbedding: (embedding) =>
         set({
@@ -65,6 +70,7 @@ export const useAuthStore = create<AuthState>((set) => ({
             user: null,
             authMode: 'guest',
             referenceFaceEmbedding: null,
+            googleAccessToken: null,
             isLoading: false,
             error: null,
         }),

@@ -1,19 +1,28 @@
 import Dexie, { type EntityTable } from 'dexie';
-import { DB_NAME, DB_VERSION } from '../config/constants';
-import type { PhotoMetadata } from '../types';
+import { DB_NAME } from '../config/constants';
+import type { PhotoMetadata, SavedFace } from '../types';
 
 /**
  * IndexedDB Database using Dexie
  * Stores metadata about photos (NOT the actual photo blobs - those go in OPFS)
+ * Also stores saved calibration faces for quick re-use.
  */
 class OATDatabase extends Dexie {
     photos!: EntityTable<PhotoMetadata, 'id'>;
+    savedFaces!: EntityTable<SavedFace, 'id'>;
 
     constructor() {
         super(DB_NAME);
 
-        this.version(DB_VERSION).stores({
+        // v1: photos table
+        this.version(1).stores({
             photos: 'id, timestamp, source, hasFace, isMatch, processed, driveId',
+        });
+
+        // v2: add savedFaces table
+        this.version(2).stores({
+            photos: 'id, timestamp, source, hasFace, isMatch, processed, driveId',
+            savedFaces: 'id, createdAt',
         });
     }
 }
@@ -80,4 +89,35 @@ export const dbHelpers = {
 
         return { total, processed, matched, hasFace };
     },
+
+    // ── Saved Faces ──────────────────────────────────
+
+    /**
+     * Save a calibration face
+     */
+    async addFace(face: SavedFace): Promise<void> {
+        await db.savedFaces.add(face);
+    },
+
+    /**
+     * Get all saved faces, newest first
+     */
+    async getAllFaces(): Promise<SavedFace[]> {
+        return await db.savedFaces.orderBy('createdAt').reverse().toArray();
+    },
+
+    /**
+     * Delete a saved face
+     */
+    async deleteFace(id: string): Promise<void> {
+        await db.savedFaces.delete(id);
+    },
+
+    /**
+     * Clear all saved faces
+     */
+    async clearFaces(): Promise<void> {
+        await db.savedFaces.clear();
+    },
 };
+

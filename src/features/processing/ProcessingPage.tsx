@@ -64,7 +64,7 @@ export function ProcessingPage() {
 
   return (
     <div
-      className="min-h-screen flex flex-col items-center justify-center p-6"
+      className="flex-1 flex flex-col items-center justify-center p-6"
       style={{ backgroundColor: 'var(--color-oat-cream)' }}
     >
       <div className="max-w-md w-full text-center">

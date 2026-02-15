@@ -1,4 +1,4 @@
-import { signInWithPopup } from 'firebase/auth';
+import { signInWithPopup, GoogleAuthProvider } from 'firebase/auth';
 import { auth, googleProvider, isFirebaseConfigured } from '../../lib/firebase';
 import { useAuthStore } from '../../store/auth';
 import { useNavigate } from 'react-router-dom';
@@ -11,7 +11,7 @@ import { log } from '../../lib/logger';
  */
 
 export function useAuth() {
-  const { user, setUser, setAuthMode } = useAuthStore();
+  const { user, setUser, setAuthMode, setGoogleAccessToken } = useAuthStore();
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const navigate = useNavigate();
@@ -45,6 +45,13 @@ export function useAuth() {
         displayName: result.user.displayName,
         photoURL: result.user.photoURL,
       });
+
+      // Extract the OAuth access token (includes Drive scopes)
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      if (credential?.accessToken) {
+        setGoogleAccessToken(credential.accessToken);
+        log.auth.success('Google Drive access token obtained');
+      }
 
       setAuthMode('authenticated');
       navigate('/calibration');
