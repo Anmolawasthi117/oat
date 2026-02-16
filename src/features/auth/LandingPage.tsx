@@ -223,7 +223,7 @@ export function LandingPage() {
             animate={{ opacity: 1 }}
             transition={{ delay: 1.6 }}
           >
-            v{APP.VERSION} · No data ever leaves your device
+            v{APP.VERSION} · <a href="/privacy" className="underline hover:text-black transition-colors">Privacy Policy</a> · No data ever leaves your device
           </motion.p>
         </div>
       </div>

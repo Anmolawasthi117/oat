@@ -54,8 +54,12 @@ export function Footer() {
                     Created by Anmol
                 </button>
 
-                <div style={{ fontSize: '0.7rem', opacity: 0.6 }}>
-                    All processing happens on your device · Your photos never leave your browser
+                <div style={{ fontSize: '0.7rem', opacity: 0.6, display: 'flex', gap: '1rem' }}>
+                    <span>All processing happens on your device</span>
+                    <span>·</span>
+                    <span>Your photos never leave your browser</span>
+                    <span>·</span>
+                    <a href="/privacy" style={{ textDecoration: 'underline' }}>Privacy Policy</a>
                 </div>
             </footer>
 

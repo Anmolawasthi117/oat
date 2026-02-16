@@ -8,6 +8,7 @@ import { CalibrationPage } from './features/calibration/CalibrationPage';
 import { IngestionPage } from './features/ingestion/IngestionPage';
 import { ProcessingPage } from './features/processing/ProcessingPage';
 import { ResultsPage } from './features/results/ResultsPage';
+import { PrivacyPolicy } from './features/auth/PrivacyPolicy';
 
 /**
  * InnerApp — Handles routing and animations.
@@ -27,6 +28,7 @@ function InnerApp() {
             <Route path="/ingestion" element={<IngestionPage />} />
             <Route path="/processing" element={<ProcessingPage />} />
             <Route path="/results" element={<ResultsPage />} />
+            <Route path="/privacy" element={<PrivacyPolicy />} />
           </Routes>
         </AnimatePresence>
       </Layout>
